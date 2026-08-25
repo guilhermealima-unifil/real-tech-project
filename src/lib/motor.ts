@@ -17,6 +17,8 @@
  * Testes 3 e 4 sem inventar nenhum dado que as entrevistas não deram.
  */
 
+import { recomendacaoParaAno } from "./frases";
+
 export type FormulaTipo = "multiplicador" | "markup";
 export type Regime = "simples" | "lucroReal";
 export type CenarioRepasse = "integral" | "gradual" | "absorcao";
@@ -131,16 +133,29 @@ export function simular(
     const alertaDisparado =
       (teto !== null && piso > teto) || margemResultante < entrada.margemMinimaPct;
 
+    const precoArredondado = round2(preco);
+    const pisoArredondado = round2(piso);
+    const margemResultanteArredondada = round4(margemResultante);
+    const descontoMaximoArredondado = descontoMaximoPct === null ? null : round4(descontoMaximoPct);
+
     return {
       ano: parametro.ano,
-      preco: round2(preco),
-      margemResultante: round4(margemResultante),
+      preco: precoArredondado,
+      margemResultante: margemResultanteArredondada,
       tributoTotalPct: round4(tributoTotalPctInteiro(parametro)),
-      piso: round2(piso),
+      piso: pisoArredondado,
       teto,
-      descontoMaximoPct: descontoMaximoPct === null ? null : round4(descontoMaximoPct),
+      descontoMaximoPct: descontoMaximoArredondado,
       alertaDisparado,
-      mensagemRecomendacao: null,
+      mensagemRecomendacao: recomendacaoParaAno({
+        ano: parametro.ano,
+        preco: precoArredondado,
+        piso: pisoArredondado,
+        teto,
+        margemResultante: margemResultanteArredondada,
+        margemMinimaPct: entrada.margemMinimaPct,
+        descontoMaximoPct: descontoMaximoArredondado,
+      }),
     };
   });
 }
