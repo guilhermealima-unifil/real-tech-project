@@ -1,0 +1,193 @@
+import { describe, expect, it } from "vitest";
+import { simular, type ParametroTributarioAno } from "./motor";
+
+/**
+ * Parâmetros ILUSTRATIVOS só para testar o motor — não são os valores reais
+ * da transição (esses ainda precisam ser validados com o contador, ver
+ * docs/00-plano-implementacao.md seção 10). 2027 tem +1,00 p.p. exato sobre
+ * 2026 de propósito, para os Testes 3 e 4.
+ */
+const PARAMETROS_TESTE: ParametroTributarioAno[] = [
+  { ano: 2026, cbsPct: 0.9, ibsPct: 0.1, pisCofinsPct: 3.65, icmsIssPct: 18 },
+  { ano: 2027, cbsPct: 0.9, ibsPct: 0.1, pisCofinsPct: 3.65, icmsIssPct: 19 },
+  { ano: 2028, cbsPct: 3, ibsPct: 3, pisCofinsPct: 2.5, icmsIssPct: 17 },
+  { ano: 2029, cbsPct: 6, ibsPct: 6, pisCofinsPct: 1.5, icmsIssPct: 13 },
+  { ano: 2030, cbsPct: 9, ibsPct: 9, pisCofinsPct: 1, icmsIssPct: 8 },
+  { ano: 2031, cbsPct: 12, ibsPct: 12, pisCofinsPct: 0.5, icmsIssPct: 3 },
+  { ano: 2032, cbsPct: 13, ibsPct: 13, pisCofinsPct: 0.25, icmsIssPct: 1.25 },
+  { ano: 2033, cbsPct: 13.25, ibsPct: 13.25, pisCofinsPct: 0, icmsIssPct: 0 },
+];
+
+function resultadoDoAno(resultados: ReturnType<typeof simular>, ano: number) {
+  const resultado = resultados.find((r) => r.ano === ano);
+  if (!resultado) throw new Error(`Ano ${ano} não encontrado no resultado.`);
+  return resultado;
+}
+
+describe("simular — motor de cálculo tributário", () => {
+  it("Teste 1: EletroLondrina, multiplicador — custo 100, despesa 20%, margem 35% → preço R$ 155,00", () => {
+    const resultados = simular(
+      {
+        custoCompra: 100,
+        formulaTipo: "multiplicador",
+        despesaFixaPct: 0.2,
+        margemAlvoPct: 0.35,
+        margemMinimaPct: 0.3,
+        regime: "simples",
+      },
+      PARAMETROS_TESTE,
+    );
+    expect(resultadoDoAno(resultados, 2026).preco).toBe(155);
+  });
+
+  it("Teste 2: In-Pacto, markup — custo 100, markup 30% → preço R$ 130,00", () => {
+    const resultados = simular(
+      {
+        custoCompra: 100,
+        formulaTipo: "markup",
+        markupPct: 0.3,
+        margemAlvoPct: 0.3,
+        margemMinimaPct: 0.25,
+        regime: "lucroReal",
+      },
+      PARAMETROS_TESTE,
+    );
+    expect(resultadoDoAno(resultados, 2026).preco).toBe(130);
+  });
+
+  it("Teste 3: aumento de carga (+1 p.p.), multiplicador — preço sobe, margem-alvo em reais preservada", () => {
+    const resultados = simular(
+      {
+        custoCompra: 100,
+        formulaTipo: "multiplicador",
+        despesaFixaPct: 0.2,
+        margemAlvoPct: 0.35,
+        margemMinimaPct: 0.3,
+        regime: "simples",
+      },
+      PARAMETROS_TESTE,
+    );
+    const base = resultadoDoAno(resultados, 2026);
+    const comAumento = resultadoDoAno(resultados, 2027);
+
+    expect(comAumento.preco).toBe(base.preco + 1);
+    expect(comAumento.margemResultante).toBe(base.margemResultante);
+    expect(comAumento.margemResultante).toBe(0.35);
+  });
+
+  it("Teste 4: aumento de carga (+1 p.p.), markup — preço não muda, lucro cai", () => {
+    const resultados = simular(
+      {
+        custoCompra: 100,
+        formulaTipo: "markup",
+        markupPct: 0.3,
+        margemAlvoPct: 0.3,
+        margemMinimaPct: 0.25,
+        regime: "lucroReal",
+      },
+      PARAMETROS_TESTE,
+    );
+    const base = resultadoDoAno(resultados, 2026);
+    const comAumento = resultadoDoAno(resultados, 2027);
+
+    expect(comAumento.preco).toBe(base.preco);
+    expect(comAumento.margemResultante).toBeLessThan(base.margemResultante);
+    expect(base.margemResultante).toBe(0.3);
+    expect(comAumento.margemResultante).toBe(0.29);
+  });
+
+  it("Teste 5: desconto no piso — preço praticado = piso → desconto máximo = 0%", () => {
+    const resultados = simular(
+      {
+        custoCompra: 100,
+        formulaTipo: "multiplicador",
+        despesaFixaPct: 0.2,
+        margemAlvoPct: 0.35,
+        margemMinimaPct: 0.35, // igual à margem-alvo → preço calculado = piso
+        regime: "simples",
+      },
+      PARAMETROS_TESTE,
+    );
+    const resultado = resultadoDoAno(resultados, 2026);
+    expect(resultado.preco).toBe(resultado.piso);
+    expect(resultado.descontoMaximoPct).toBe(0);
+  });
+
+  it("Teste 6: piso acima do teto — faixa negativa e alerta disparado", () => {
+    const resultados = simular(
+      {
+        custoCompra: 100,
+        formulaTipo: "multiplicador",
+        despesaFixaPct: 0.2,
+        margemAlvoPct: 0.35,
+        margemMinimaPct: 0.35,
+        regime: "simples",
+        tetoPracaMax: 150, // abaixo do piso (155)
+      },
+      PARAMETROS_TESTE,
+    );
+    const resultado = resultadoDoAno(resultados, 2026);
+    expect(resultado.piso).toBeGreaterThan(resultado.teto as number);
+    expect(resultado.alertaDisparado).toBe(true);
+  });
+
+  it("Teste 7: continuidade da transição 2026→2033 — nenhum salto não explicado pelos parâmetros", () => {
+    const resultados = simular(
+      {
+        custoCompra: 100,
+        formulaTipo: "multiplicador",
+        despesaFixaPct: 0.2,
+        margemAlvoPct: 0.35,
+        margemMinimaPct: 0.3,
+        regime: "simples",
+      },
+      PARAMETROS_TESTE,
+    );
+
+    for (let i = 1; i < resultados.length; i++) {
+      const anterior = resultados[i - 1];
+      const atual = resultados[i];
+      const paramAnterior = PARAMETROS_TESTE.find((p) => p.ano === anterior.ano)!;
+      const paramAtual = PARAMETROS_TESTE.find((p) => p.ano === atual.ano)!;
+
+      const deltaTributoEsperado =
+        (paramAtual.cbsPct +
+          paramAtual.ibsPct +
+          paramAtual.pisCofinsPct +
+          paramAtual.icmsIssPct -
+          (paramAnterior.cbsPct +
+            paramAnterior.ibsPct +
+            paramAnterior.pisCofinsPct +
+            paramAnterior.icmsIssPct)) /
+        100;
+
+      const deltaPrecoEsperado = 100 * deltaTributoEsperado;
+      expect(atual.preco - anterior.preco).toBeCloseTo(deltaPrecoEsperado, 2);
+    }
+  });
+
+  it("Teste 8: faixa estreita legível — piso 155, teto 160 (3% de folga), desconto máximo correto", () => {
+    const resultados = simular(
+      {
+        custoCompra: 100,
+        formulaTipo: "multiplicador",
+        despesaFixaPct: 0.2,
+        margemAlvoPct: 0.38,
+        margemMinimaPct: 0.35,
+        regime: "simples",
+        tetoPracaMax: 160,
+      },
+      PARAMETROS_TESTE,
+    );
+    const resultado = resultadoDoAno(resultados, 2026);
+
+    expect(resultado.piso).toBe(155);
+    expect(resultado.teto).toBe(160);
+    expect(resultado.alertaDisparado).toBe(false);
+    expect(resultado.descontoMaximoPct).toBeCloseTo(
+      (resultado.preco - resultado.piso) / resultado.preco,
+      4,
+    );
+    expect(resultado.descontoMaximoPct).toBeGreaterThan(0);
+  });
+});
