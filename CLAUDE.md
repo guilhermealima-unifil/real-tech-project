@@ -26,18 +26,47 @@ eles.
 ## Estado atual do repositório
 
 - [x] Projeto Next.js inicializado (scaffold, sem telas/módulos de negócio ainda).
-- [x] Projeto criado na Vercel e ligado ao repositório (sem banco, sem Prisma ainda).
-- [ ] Prisma instalado e `prisma/schema.prisma` criado (Documento 1, seções 4–6).
-- [ ] Banco PostgreSQL criado na Vercel (Storage → Prisma Postgres).
-- [ ] `DATABASE_URL` sincronizada localmente (`vercel env pull`).
-- [ ] `lib/motor.ts` (função pura `simular()`) e os 8 testes de aceitação (Vitest).
+- [x] Projeto criado na Vercel, ligado ao repositório, Framework Preset = Next.js.
+- [x] Banco PostgreSQL criado na Vercel (Storage → Prisma Postgres, região Washington/USA — `gru1` não disponível).
+- [x] Prisma instalado (fixado em `7.10.0` — ver "Divergências do Documento 1" abaixo) e `prisma/schema.prisma` criado com os 5 modelos (Documento 1, seção 6).
+- [x] Schema aplicado no banco (`prisma db push`) e Prisma Client gerado.
+- [x] `DATABASE_URL` sincronizada localmente (`vercel env pull`), `.env` no `.gitignore`.
+- [x] `src/lib/prisma.ts` (singleton do Prisma Client com `@prisma/adapter-pg`).
+- [ ] `src/lib/motor.ts` (função pura `simular()`) e os 8 testes de aceitação (Vitest ainda não instalado).
 - [ ] `prisma/seed.ts` com ramos, parâmetros 2026–2033 e os casos reais.
 - [ ] API routes (`/api/ramos`, `/api/parametros`, `/api/simular`, ...).
 - [ ] Telas (entrada, faixa viável, cenários, desconto, recomendação).
 
-Isso é o ponto de partida da Fase 1 do Documento 0 — nada disso deve ser
-construído sem alinhar antes, especialmente decisões de schema, contrato dos
-endpoints e layout de tela.
+Nada da lista pendente deve ser construído sem alinhar antes, especialmente
+o conteúdo do seed (parâmetros tributários ainda não validados com o
+contador) e o contrato dos endpoints.
+
+## Divergências do Documento 1 (por que o código não é uma cópia 1:1)
+
+- **`src/` em vez de `app/` na raiz**: todo caminho do Documento 1 precisa
+  de tradução — `lib/` → `src/lib/`, `app/api/...` → `src/app/api/...`.
+  `prisma/` (schema, seed, migrations) fica na raiz normalmente, fora de
+  `src/`.
+- **Prisma Client gerado em `src/generated/prisma`** (era
+  `app/generated/prisma` no documento). Import: `@/generated/prisma/client`.
+  Já está no `.gitignore`.
+- **`prisma7.config.ts`, não `prisma.config.ts`**: a CLI do Prisma 7.10
+  gera e procura especificamente esse nome de arquivo (suporte a
+  side-by-side com Prisma 8). Não renomear para `prisma.config.ts`.
+- **Prisma fixado em `7.10.0` (client, CLI e adapter-pg), não "latest"**:
+  o dist-tag `latest` do pacote `prisma` aponta para `8.0.0-rc.10`, uma
+  release candidate com mudança arquitetural grande (client deixa de ser
+  gerado como pacote tradicional) e ainda desalinhada com `@prisma/client`
+  (que está em `7.10.0` estável). Não fazer upgrade para a linha 8.x sem
+  decidir isso explicitamente — o CLI vai continuar avisando que há
+  atualização disponível, é esperado.
+- **Região do banco: Washington (USA), não `gru1` (São Paulo)** — `gru1`
+  não estava disponível no Marketplace no momento da criação.
+- **Prisma Postgres instalou skills de referência automaticamente** em
+  `.claude/skills/prisma-*` (prisma-cli, prisma-client-api, prisma-postgres,
+  prisma-upgrade-v7, etc., + `skills-lock.json`) — conteúdo oficial do
+  repositório `prisma/skills`, mantido por decisão do time. Não confundir
+  com as 3 skills que desenhamos para este projeto (abaixo).
 
 ## Regras não-negociáveis (extraídas dos documentos — não reabrir sem discutir)
 
@@ -64,13 +93,19 @@ endpoints e layout de tela.
 ## Comandos
 
 ```bash
-npm run dev      # servidor de desenvolvimento
-npm run build    # build de produção
-npm run lint     # eslint
+npm run dev            # servidor de desenvolvimento
+npm run build           # build de produção
+npm run lint             # eslint
+
+npx prisma validate      # valida prisma/schema.prisma
+npx prisma format        # formata prisma/schema.prisma
+npx prisma db push       # aplica o schema no banco (sem migration versionada)
+npx prisma generate      # gera o Prisma Client em src/generated/prisma
+npx tsx prisma/seed.ts   # roda o seed (quando existir)
 ```
 
-(Comandos de teste e de banco serão adicionados aqui quando Vitest e Prisma
-forem instalados na Fase 1.)
+(Comando de teste — `npm run test` ou `npx vitest run` — será adicionado
+aqui quando o Vitest for instalado, junto de `src/lib/motor.ts`.)
 
 ## Skills deste projeto
 
@@ -80,3 +115,10 @@ forem instalados na Fase 1.)
   seção 10; Documento 1, seção 14) e reporta o que falta.
 - `seed-db` — roda `prisma/seed.ts` e confirma que ramos, parâmetros
   2026–2033 e os casos reais foram carregados.
+- `prisma-cli`, `prisma-client-api`, `prisma-compute`,
+  `prisma-database-setup`, `prisma-driver-adapter-implementation`,
+  `prisma-mongodb-upgrade`, `prisma-postgres`, `prisma-postgres-setup`,
+  `prisma-upgrade-v7` — skills de referência oficiais do Prisma
+  (repositório `prisma/skills`), instaladas automaticamente pelo
+  `prisma init`. Não fazem parte do design deste projeto; são material de
+  consulta para tarefas envolvendo Prisma.
