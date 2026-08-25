@@ -27,6 +27,11 @@ eles.
 
 ## Estado atual do repositório
 
+**Fase 1 (Documento 0, seção 4) está fechada.** Todos os itens abaixo até
+`src/lib/frases.ts` estão prontos e testados — falta só a validação humana
+dos parâmetros fiscais com o contador (docs/05), que não é um bloqueio de
+código.
+
 - [x] Projeto Next.js inicializado (scaffold, sem telas/módulos de negócio ainda).
 - [x] Projeto criado na Vercel, ligado ao repositório, Framework Preset = Next.js.
 - [x] Banco PostgreSQL criado na Vercel (Storage → Prisma Postgres, região Washington/USA — `gru1` não disponível).
@@ -36,14 +41,15 @@ eles.
 - [x] `src/lib/prisma.ts` (singleton do Prisma Client com `@prisma/adapter-pg`).
 - [x] Vitest instalado.
 - [x] `src/lib/motor.ts` (função pura `simular()`) e os 8 testes de aceitação — todos passando. Algoritmo "delta desde o ano-base" (ver seção abaixo). Só cenário "integral"; "gradual"/"absorcao" lançam erro (Fase 3).
-- [ ] `mensagemRecomendacao` (frases fixas) — motor retorna `null`, texto ainda não escrito.
-- [ ] `prisma/seed.ts` com ramos, parâmetros 2026–2033 e os casos reais.
-- [ ] API routes (`/api/ramos`, `/api/parametros`, `/api/simular`, ...).
-- [ ] Telas (entrada, faixa viável, cenários, desconto, recomendação).
+- [x] `src/lib/frases.ts` (`recomendacaoParaAno`) — 4 frases fixas conectadas a `mensagemRecomendacao`, com prioridade definida (faixa inviável > margem furada > desconto disponível > sem margem de desconto).
+- [x] `prisma/seed.ts` — 3 ramos, 8 anos de parâmetros tributários (**provisórios**, ver docs/05), 2 empresas e os 2 casos reais (EletroLondrina, In-Pacto). Rodado e verificado contra o banco: `EletroLondrina 2026 = R$155,00`, `In-Pacto 2026 = R$130,00` (batem com os Testes 1 e 2); `In-Pacto 2033` já mostra `alertaDisparado = true` (margem cai para 26,15%, abaixo do mínimo de 30%).
+- [ ] **Parâmetros tributários validados com o contador** (docs/05 tem o checklist) — pendente humano, não é código.
+- [ ] API routes (`/api/ramos`, `/api/parametros`, `/api/simular`, ...) — Fase 2.
+- [ ] Telas (entrada, faixa viável, cenários, desconto, recomendação) — Fase 2.
 
 Nada da lista pendente deve ser construído sem alinhar antes, especialmente
-o conteúdo do seed (parâmetros tributários ainda não validados com o
-contador) e o contrato dos endpoints.
+o contrato dos endpoints (Fase 2) — e nenhum número da aplicação deve ser
+tratado como definitivo até o checklist de docs/05 estar marcado.
 
 ## Divergências do Documento 1 (por que o código não é uma cópia 1:1)
 
@@ -71,6 +77,16 @@ contador) e o contrato dos endpoints.
   prisma-upgrade-v7, etc., + `skills-lock.json`) — conteúdo oficial do
   repositório `prisma/skills`, mantido por decisão do time. Não confundir
   com as 3 skills que desenhamos para este projeto (abaixo).
+
+## Nota de produto para a Fase 2 (telas)
+
+`tetoPraca` normalmente **não é um dado que a empresa já tem guardado** —
+segundo o Dossiê (docs/04, seção 5.2), o preço do concorrente costuma
+chegar no momento da venda, pelo próprio cliente. A tela de entrada não
+deve tratar esse campo como obrigatório/pré-cadastrado; provavelmente
+precisa ser fácil de preencher ou editar *durante* o atendimento, não só
+antes. Isso não foi desenhado ainda — só registrado aqui para não se
+perder até a Fase 2.
 
 ## Desenho do motor (`src/lib/motor.ts`) — decisão que não está nos documentos originais
 
@@ -100,8 +116,11 @@ com o usuário, depois de ler também docs/03 e docs/04:
   precisar mudar depois.
 - **`cenarioRepasse`**: só `"integral"` está implementado — `"gradual"` e
   `"absorcao"` lançam erro (`Error`), são trabalho da Fase 3.
-- **`mensagemRecomendacao` sempre `null`** por enquanto — as frases fixas
-  ainda não foram escritas/revisadas.
+- **`mensagemRecomendacao`** é gerada por `src/lib/frases.ts`
+  (`recomendacaoParaAno`) — 4 frases fixas, prioridade: faixa inviável
+  (piso > teto) > margem já furada > desconto disponível > sem margem de
+  desconto (preço = piso). Uma camada de IA opcional pode redigir/refinar
+  isso depois; não é dependência do caminho crítico.
 
 ## Regras não-negociáveis (extraídas dos documentos — não reabrir sem discutir)
 
