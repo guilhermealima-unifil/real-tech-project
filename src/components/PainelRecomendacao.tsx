@@ -1,0 +1,57 @@
+import type { ResultadoAno } from "@/lib/motor";
+import { formatarPct, formatarReais } from "@/lib/frases";
+
+interface PainelRecomendacaoProps {
+  resultado: ResultadoAno | null;
+}
+
+/**
+ * Sempre visível — nunca uma tela de "resultado numérico solto" (docs/02,
+ * seção 3, item 5). Acompanha a tela de entrada e a faixa viável.
+ */
+export function PainelRecomendacao({ resultado }: PainelRecomendacaoProps) {
+  if (!resultado) {
+    return (
+      <div className="rounded-lg border border-dashed border-zinc-300 p-5 text-sm text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
+        Preencha os dados e simule para ver a recomendação de preço ano a ano.
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={`rounded-lg border p-5 ${
+        resultado.alertaDisparado
+          ? "border-red-300 bg-red-50 dark:border-red-800 dark:bg-red-950/40"
+          : "border-emerald-300 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/40"
+      }`}
+    >
+      <p className="text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+        Recomendação · {resultado.ano}
+      </p>
+      <p className="mt-1 text-base font-medium text-zinc-900 dark:text-zinc-50">
+        {resultado.mensagemRecomendacao}
+      </p>
+      <dl className="mt-4 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+        <div>
+          <dt className="text-zinc-500 dark:text-zinc-400">Preço</dt>
+          <dd className="font-semibold">R$ {formatarReais(resultado.preco)}</dd>
+        </div>
+        <div>
+          <dt className="text-zinc-500 dark:text-zinc-400">Piso</dt>
+          <dd className="font-semibold">R$ {formatarReais(resultado.piso)}</dd>
+        </div>
+        <div>
+          <dt className="text-zinc-500 dark:text-zinc-400">Teto da praça</dt>
+          <dd className="font-semibold">{resultado.teto !== null ? `R$ ${formatarReais(resultado.teto)}` : "—"}</dd>
+        </div>
+        <div>
+          <dt className="text-zinc-500 dark:text-zinc-400">Desconto máximo</dt>
+          <dd className="font-semibold">
+            {resultado.descontoMaximoPct !== null ? `${formatarPct(resultado.descontoMaximoPct)}%` : "—"}
+          </dd>
+        </div>
+      </dl>
+    </div>
+  );
+}

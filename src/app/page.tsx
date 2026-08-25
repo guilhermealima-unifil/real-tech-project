@@ -1,68 +1,413 @@
-import Image from "next/image";
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import type { ResultadoAno } from "@/lib/motor";
+import { FaixaViavelChart } from "@/components/FaixaViavelChart";
+import { PainelRecomendacao } from "@/components/PainelRecomendacao";
+
+interface Ramo {
+  id: string;
+  chave: string;
+  rotulo: string;
+  aliquotaSugerida: number;
+}
+
+interface ParametroInfo {
+  ano: number;
+  vigencia: string;
+  fonte: string;
+}
+
+type FormulaTipo = "multiplicador" | "markup";
+type Regime = "simples" | "lucroReal";
+
+interface FormState {
+  ramoId: string;
+  custoCompra: string;
+  formulaTipo: FormulaTipo;
+  despesaFixaPct: string;
+  markupPct: string;
+  margemAlvoPct: string;
+  margemMinimaPct: string;
+  regime: Regime;
+  tetoPracaMin: string;
+  tetoPracaMax: string;
+}
+
+const FORM_INICIAL: FormState = {
+  ramoId: "",
+  custoCompra: "",
+  formulaTipo: "multiplicador",
+  despesaFixaPct: "",
+  markupPct: "",
+  margemAlvoPct: "",
+  margemMinimaPct: "",
+  regime: "simples",
+  tetoPracaMin: "",
+  tetoPracaMax: "",
+};
+
+/** Casos reais das entrevistas (docs/00, seção 6; prisma/seed.ts) — botão de demonstração. */
+const CASOS_REAIS: Record<string, { rotulo: string; ramoChave: string; form: Omit<FormState, "ramoId"> }> = {
+  eletrolondrina: {
+    rotulo: "Carregar caso EletroLondrina",
+    ramoChave: "eletro",
+    form: {
+      custoCompra: "100",
+      formulaTipo: "multiplicador",
+      despesaFixaPct: "20",
+      markupPct: "",
+      margemAlvoPct: "35",
+      margemMinimaPct: "30",
+      regime: "simples",
+      tetoPracaMin: "",
+      tetoPracaMax: "",
+    },
+  },
+  inpacto: {
+    rotulo: "Carregar caso Grupo In-Pacto",
+    ramoChave: "eletrico",
+    form: {
+      custoCompra: "100",
+      formulaTipo: "markup",
+      despesaFixaPct: "",
+      markupPct: "30",
+      margemAlvoPct: "30",
+      margemMinimaPct: "30",
+      regime: "lucroReal",
+      tetoPracaMin: "",
+      tetoPracaMax: "",
+    },
+  },
+};
+
+function numOrUndefined(valor: string): number | undefined {
+  if (valor.trim() === "") return undefined;
+  const n = Number(valor);
+  return Number.isFinite(n) ? n : undefined;
+}
 
 export default function Home() {
+  const [ramos, setRamos] = useState<Ramo[]>([]);
+  const [parametrosInfo, setParametrosInfo] = useState<ParametroInfo | null>(null);
+  const [form, setForm] = useState<FormState>(FORM_INICIAL);
+  const [resultados, setResultados] = useState<ResultadoAno[] | null>(null);
+  const [ramoSimulado, setRamoSimulado] = useState<{ rotulo: string; aliquotaSugerida: number } | null>(null);
+  const [anoSelecionado, setAnoSelecionado] = useState<number>(2026);
+  const [erros, setErros] = useState<string[]>([]);
+  const [carregando, setCarregando] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/ramos")
+      .then((r) => r.json())
+      .then((data: Ramo[]) => setRamos(data))
+      .catch(() => setErros((e) => [...e, "Não foi possível carregar os ramos."]));
+
+    fetch("/api/parametros")
+      .then((r) => r.json())
+      .then((data: ParametroInfo[]) => {
+        if (data.length > 0) setParametrosInfo(data[0]);
+      })
+      .catch(() => {});
+  }, []);
+
+  const ramoSelecionado = useMemo(
+    () => ramos.find((r) => r.id === form.ramoId) ?? null,
+    [ramos, form.ramoId],
+  );
+
+  function atualizarCampo<K extends keyof FormState>(campo: K, valor: FormState[K]) {
+    setForm((f) => ({ ...f, [campo]: valor }));
+  }
+
+  function carregarCasoReal(chave: keyof typeof CASOS_REAIS) {
+    const caso = CASOS_REAIS[chave];
+    const ramo = ramos.find((r) => r.chave === caso.ramoChave);
+    if (!ramo) return;
+    setForm({ ramoId: ramo.id, ...caso.form });
+    setResultados(null);
+    setErros([]);
+  }
+
+  async function simular(evento: React.FormEvent) {
+    evento.preventDefault();
+    setErros([]);
+    setCarregando(true);
+
+    const corpo = {
+      ramoId: form.ramoId,
+      custoCompra: numOrUndefined(form.custoCompra),
+      formulaTipo: form.formulaTipo,
+      despesaFixaPct: form.formulaTipo === "multiplicador" ? numOrUndefined(form.despesaFixaPct) : undefined,
+      markupPct: form.formulaTipo === "markup" ? numOrUndefined(form.markupPct) : undefined,
+      margemAlvoPct: numOrUndefined(form.margemAlvoPct),
+      margemMinimaPct: numOrUndefined(form.margemMinimaPct),
+      regime: form.regime,
+      tetoPracaMin: numOrUndefined(form.tetoPracaMin),
+      tetoPracaMax: numOrUndefined(form.tetoPracaMax),
+      cenarioRepasse: "integral",
+    };
+
+    try {
+      const resposta = await fetch("/api/simular", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(corpo),
+      });
+      const data = await resposta.json();
+      if (!resposta.ok) {
+        setErros(data.erros ?? ["Erro ao simular."]);
+        setResultados(null);
+        return;
+      }
+      setResultados(data.resultados as ResultadoAno[]);
+      setRamoSimulado(data.ramo);
+      setAnoSelecionado(2026);
+    } catch {
+      setErros(["Não foi possível falar com o servidor. Verifique a rede e tente novamente."]);
+    } finally {
+      setCarregando(false);
+    }
+  }
+
+  const resultadoSelecionado = resultados?.find((r) => r.ano === anoSelecionado) ?? null;
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
+    <div className="flex flex-1 flex-col bg-zinc-50 dark:bg-black">
+      <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 px-6 py-10">
+        <header>
+          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
+            Real Tech — faixa viável de preço na transição IBS/CBS
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+            Custo, margem mínima e preço da praça: onde seu preço pode viver em cada ano, de 2026 a 2033.
           </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+        </header>
+
+        <form
+          onSubmit={simular}
+          className="rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-950"
+        >
+          <div className="mb-4 flex flex-wrap gap-2">
+            {Object.entries(CASOS_REAIS).map(([chave, caso]) => (
+              <button
+                key={chave}
+                type="button"
+                onClick={() => carregarCasoReal(chave as keyof typeof CASOS_REAIS)}
+                disabled={ramos.length === 0}
+                className="rounded-full border border-zinc-300 px-3 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-900"
+              >
+                {caso.rotulo}
+              </button>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="font-medium text-zinc-700 dark:text-zinc-300">Custo de compra (R$)</span>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                required
+                value={form.custoCompra}
+                onChange={(e) => atualizarCampo("custoCompra", e.target.value)}
+                className="rounded border border-zinc-300 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900"
+              />
+            </label>
+
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="font-medium text-zinc-700 dark:text-zinc-300">Ramo</span>
+              <select
+                required
+                value={form.ramoId}
+                onChange={(e) => atualizarCampo("ramoId", e.target.value)}
+                className="rounded border border-zinc-300 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900"
+              >
+                <option value="" disabled>
+                  Selecione…
+                </option>
+                {ramos.map((ramo) => (
+                  <option key={ramo.id} value={ramo.id}>
+                    {ramo.rotulo}
+                  </option>
+                ))}
+              </select>
+              {ramoSelecionado && (
+                <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                  Alíquota sugerida: {ramoSelecionado.aliquotaSugerida}% — estimativa por ramo. A precisão do
+                  centavo é trabalho do contador.
+                </span>
+              )}
+            </label>
+
+            <fieldset className="flex flex-col gap-1 text-sm sm:col-span-2">
+              <span className="font-medium text-zinc-700 dark:text-zinc-300">
+                Sua margem já inclui impostos e despesas?
+              </span>
+              <div className="flex gap-4">
+                <label className="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    name="formulaTipo"
+                    checked={form.formulaTipo === "markup"}
+                    onChange={() => atualizarCampo("formulaTipo", "markup")}
+                  />
+                  Sim — uso um markup único (ex.: In-Pacto)
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    name="formulaTipo"
+                    checked={form.formulaTipo === "multiplicador"}
+                    onChange={() => atualizarCampo("formulaTipo", "multiplicador")}
+                  />
+                  Não — calculo despesas e margem separadas (ex.: EletroLondrina)
+                </label>
+              </div>
+            </fieldset>
+
+            {form.formulaTipo === "multiplicador" ? (
+              <label className="flex flex-col gap-1 text-sm">
+                <span className="font-medium text-zinc-700 dark:text-zinc-300">Despesa fixa (%)</span>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.1"
+                  required
+                  value={form.despesaFixaPct}
+                  onChange={(e) => atualizarCampo("despesaFixaPct", e.target.value)}
+                  className="rounded border border-zinc-300 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900"
+                />
+              </label>
+            ) : (
+              <label className="flex flex-col gap-1 text-sm">
+                <span className="font-medium text-zinc-700 dark:text-zinc-300">Markup (%)</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  required
+                  value={form.markupPct}
+                  onChange={(e) => atualizarCampo("markupPct", e.target.value)}
+                  className="rounded border border-zinc-300 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900"
+                />
+              </label>
+            )}
+
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="font-medium text-zinc-700 dark:text-zinc-300">Margem-alvo (%)</span>
+              <input
+                type="number"
+                min="0"
+                max="100"
+                step="0.1"
+                required
+                value={form.margemAlvoPct}
+                onChange={(e) => atualizarCampo("margemAlvoPct", e.target.value)}
+                className="rounded border border-zinc-300 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900"
+              />
+            </label>
+
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="font-medium text-zinc-700 dark:text-zinc-300">Margem mínima — o piso (%)</span>
+              <input
+                type="number"
+                min="0"
+                max="100"
+                step="0.1"
+                required
+                value={form.margemMinimaPct}
+                onChange={(e) => atualizarCampo("margemMinimaPct", e.target.value)}
+                className="rounded border border-zinc-300 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900"
+              />
+            </label>
+
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="font-medium text-zinc-700 dark:text-zinc-300">Regime tributário</span>
+              <select
+                value={form.regime}
+                onChange={(e) => atualizarCampo("regime", e.target.value as Regime)}
+                className="rounded border border-zinc-300 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900"
+              >
+                <option value="simples">Simples Nacional</option>
+                <option value="lucroReal">Lucro Real</option>
+              </select>
+            </label>
+
+            <div className="flex flex-col gap-1 text-sm sm:col-span-2">
+              <span className="font-medium text-zinc-700 dark:text-zinc-300">
+                Preço da praça (opcional) — o que a concorrência pratica
+              </span>
+              <div className="flex gap-3">
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="mínimo"
+                  value={form.tetoPracaMin}
+                  onChange={(e) => atualizarCampo("tetoPracaMin", e.target.value)}
+                  className="w-1/2 rounded border border-zinc-300 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900"
+                />
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="máximo"
+                  value={form.tetoPracaMax}
+                  onChange={(e) => atualizarCampo("tetoPracaMax", e.target.value)}
+                  className="w-1/2 rounded border border-zinc-300 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900"
+                />
+              </div>
+              <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                Normalmente esse dado chega no momento da venda, pelo próprio cliente — não precisa ter em mãos
+                agora.
+              </span>
+            </div>
+          </div>
+
+          {erros.length > 0 && (
+            <ul className="mt-4 list-inside list-disc rounded border border-red-300 bg-red-50 p-3 text-sm text-red-800 dark:border-red-800 dark:bg-red-950/40 dark:text-red-300">
+              {erros.map((erro) => (
+                <li key={erro}>{erro}</li>
+              ))}
+            </ul>
+          )}
+
+          <button
+            type="submit"
+            disabled={carregando}
+            className="mt-5 rounded-full bg-zinc-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200"
           >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
+            {carregando ? "Simulando…" : "Simular faixa viável"}
+          </button>
+        </form>
+
+        {resultados && (
+          <section className="rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-950">
+            <div className="mb-4 flex items-baseline justify-between">
+              <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">Faixa viável — 2026 a 2033</h2>
+              {ramoSimulado && (
+                <span className="text-xs text-zinc-500 dark:text-zinc-400">{ramoSimulado.rotulo}</span>
+              )}
+            </div>
+            <FaixaViavelChart
+              resultados={resultados}
+              anoSelecionado={anoSelecionado}
+              onSelecionarAno={setAnoSelecionado}
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
+          </section>
+        )}
+
+        <PainelRecomendacao resultado={resultadoSelecionado} />
+
+        {parametrosInfo && (
+          <footer className="text-xs text-zinc-400 dark:text-zinc-500">
+            Parâmetros tributários vigentes desde{" "}
+            {new Date(parametrosInfo.vigencia).toLocaleDateString("pt-BR")} — {parametrosInfo.fonte}
+          </footer>
+        )}
       </main>
     </div>
   );

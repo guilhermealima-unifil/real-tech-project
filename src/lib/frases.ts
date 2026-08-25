@@ -15,11 +15,11 @@ export interface DadosParaRecomendacao {
   descontoMaximoPct: number | null;
 }
 
-function formatarReais(valor: number): string {
+export function formatarReais(valor: number): string {
   return valor.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-function formatarPct(fracao: number): string {
+export function formatarPct(fracao: number): string {
   return (fracao * 100).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 }
 

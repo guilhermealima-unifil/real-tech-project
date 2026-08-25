@@ -44,12 +44,24 @@ código.
 - [x] `src/lib/frases.ts` (`recomendacaoParaAno`) — 4 frases fixas conectadas a `mensagemRecomendacao`, com prioridade definida (faixa inviável > margem furada > desconto disponível > sem margem de desconto).
 - [x] `prisma/seed.ts` — 3 ramos, 8 anos de parâmetros tributários (**provisórios**, ver docs/05), 2 empresas e os 2 casos reais (EletroLondrina, In-Pacto). Rodado e verificado contra o banco: `EletroLondrina 2026 = R$155,00`, `In-Pacto 2026 = R$130,00` (batem com os Testes 1 e 2); `In-Pacto 2033` já mostra `alertaDisparado = true` (margem cai para 26,15%, abaixo do mínimo de 30%).
 - [ ] **Parâmetros tributários validados com o contador** (docs/05 tem o checklist) — pendente humano, não é código.
-- [ ] API routes (`/api/ramos`, `/api/parametros`, `/api/simular`, ...) — Fase 2.
-- [ ] Telas (entrada, faixa viável, cenários, desconto, recomendação) — Fase 2.
+
+**Fase 2 (Documento 0, seção 4) está fechada.** API routes e a tela de
+entrada + faixa viável, ponta a ponta contra o banco real.
+
+- [x] `src/lib/validacao.ts` — validação de `/api/simular` (docs/02, seção 7.3): `custoCompra`, limites de percentuais, `margemMinimaPct ≤ margemAlvoPct`, `tetoPracaMin ≤ tetoPracaMax`, `cenarioRepasse` restrito a valores válidos.
+- [x] `GET /api/ramos` — lista ramos com `entraNoMvp = true`.
+- [x] `GET /api/parametros` — lista os 8 anos de `ParametroTributario`.
+- [x] `POST /api/simular` — valida entrada, confere `ramo.entraNoMvp`, carrega parâmetros do banco e chama `simular()`; não persiste nada. Testado ao vivo contra o banco: EletroLondrina 2026 = R$155,00 (bate com o Teste 1); rejeita `margemMinimaPct > margemAlvoPct` com 400.
+- [x] Tela de entrada (`src/app/page.tsx`) — custo, ramo (com alíquota sugerida e aviso de estimativa), seletor de fórmula, despesa/markup, margens, regime, teto da praça opcional, botões "carregar caso real" (EletroLondrina, In-Pacto). `cenarioRepasse` fixo em `"integral"` — seletor de cenários é Fase 3.
+- [x] Tela da faixa viável (`src/components/FaixaViavelChart.tsx`) — SVG próprio (sem lib de gráfico), piso/teto/preço ano a ano, escala automática pela faixa, ano selecionável.
+- [x] Painel de recomendação (`src/components/PainelRecomendacao.tsx`) — sempre visível, mostra a frase de `mensagemRecomendacao` do ano selecionado.
+- [ ] Cenários de repasse (gradual/absorção) e controle de desconto — Fase 3.
+- [ ] `/api/simulacoes`, `/api/simulacoes/[id]`, `/api/empresas` (persistência) — bônus, não bloqueiam o Pitch.
 
 Nada da lista pendente deve ser construído sem alinhar antes, especialmente
-o contrato dos endpoints (Fase 2) — e nenhum número da aplicação deve ser
-tratado como definitivo até o checklist de docs/05 estar marcado.
+o contrato dos endpoints de persistência (Fase 4+) — e nenhum número da
+aplicação deve ser tratado como definitivo até o checklist de docs/05 estar
+marcado.
 
 ## Divergências do Documento 1 (por que o código não é uma cópia 1:1)
 
@@ -178,3 +190,13 @@ npx vitest run           # roda os testes de aceitação do motor
   (repositório `prisma/skills`), instaladas automaticamente pelo
   `prisma init`. Não fazem parte do design deste projeto; são material de
   consulta para tarefas envolvendo Prisma.
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->
