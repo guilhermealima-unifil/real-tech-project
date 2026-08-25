@@ -85,7 +85,46 @@ desconto, ponta a ponta.
   conversa (25/08), não precisou de mudança de código — se isso mudar,
   atualizar aqui.
 
-- [ ] `/api/simulacoes`, `/api/simulacoes/[id]`, `/api/empresas` (persistência) — bônus, não bloqueiam o Pitch. Fase 5 (caixa) — ver docs/00, seção 4.
+**Fase 5 (Documento 0, seção 4) está fechada.** Impacto no caixa — crédito
+tributário da compra vs. split payment, ano a ano.
+
+- [x] Pesquisa sobre o mecanismo de split payment (LC 214/2025, art. 47) —
+  registrada em docs/05, seção "Split payment — prazo de liberação do
+  crédito". Decisão de produto derivada dela: em vez de estimar um prazo em
+  dias para a fatia do crédito ainda sob regime antigo (PIS/Cofins +
+  ICMS/ISS) — algo que a própria entrevista descreve como incerto —, o
+  motor reaproveita a proporção que `ParametroTributario` já tem por ano
+  (`cbsPct+ibsPct` = protegido pelo split payment; `pisCofinsPct+icmsIssPct`
+  = em risco, depende do fornecedor) e mostra o valor em R$ de cada lado.
+  Sem campo novo no schema do Prisma.
+- [x] `src/lib/motor.ts` — `calcularImpactoCaixa(custoCompra,
+  prazoPagamentoFornecedorDias, parametros)`, função pura, mesmo padrão de
+  `simular()`. 4 novos testes em `motor.test.ts` (2026 quase tudo em risco,
+  2033 tudo protegido, soma bate com o total tributário do ano,
+  custoCompra inválido lança erro). `npx vitest run` = 15 testes passando.
+- [x] `src/lib/frases.ts` — `recomendacaoCaixaParaAno`, 3 frases fixas
+  (tudo protegido / tudo em risco / misto), mesmo padrão de
+  `recomendacaoParaAno`.
+- [x] Roda inteiramente no cliente — `/api/parametros` já devolve
+  `cbsPct/ibsPct/pisCofinsPct/icmsIssPct` por ano, sem precisar de endpoint
+  novo. `src/app/page.tsx` passou a guardar o array completo de parâmetros
+  (antes só guardava o primeiro ano, para o rodapé).
+- [x] Campo novo no formulário: "prazo de pagamento ao fornecedor (dias)" —
+  único input da Fase 5, por ser o único ponto da dor de caixa
+  (`docs/03`/`04`) realmente citado nas entrevistas; prazo de recebimento do
+  cliente ficou de fora por não ter lastro em nenhuma entrevista.
+- [x] `src/components/ImpactoCaixaChart.tsx` — barras empilhadas (R$
+  protegido/em risco) por ano, mesmo estilo SVG próprio do
+  `FaixaViavelChart`. Seção nova em `page.tsx` entre o painel de
+  recomendação e o rodapé, com a frase de `recomendacaoCaixaParaAno` do ano
+  selecionado.
+- Os *números* do split payment usados aqui (a divisão cbs/ibs vs.
+  pis-cofins/icms-iss) herdam a mesma pendência de validação do resto de
+  docs/05 — não são definitivos até o contador confirmar.
+
+- [ ] `/api/simulacoes`, `/api/simulacoes/[id]`, `/api/empresas`
+  (persistência) — bônus, não bloqueiam o Pitch, e não fazem parte da Fase 5
+  (são um item separado na "ordem de corte" de docs/00, seção 7).
 
 Nada da lista pendente deve ser construído sem alinhar antes, especialmente
 o contrato dos endpoints de persistência (Fase 4+) — e nenhum número da
@@ -192,6 +231,20 @@ com o usuário, depois de ler também docs/03 e docs/04:
   (piso > teto) > margem já furada > desconto disponível > sem margem de
   desconto (preço = piso). Uma camada de IA opcional pode redigir/refinar
   isso depois; não é dependência do caminho crítico.
+- **`calcularImpactoCaixa` (Fase 5) não modela dias, modela R$.** A dor da
+  entrevista ("meu fornecedor pagou? vou conseguir meu crédito?", docs/03/04)
+  é sobre incerteza, não sobre um prazo conhecido — inventar um número de
+  dias para a fatia do crédito ainda sob regime antigo contradiria o
+  princípio já seguido no projeto de não estimar dado sem lastro. Em vez
+  disso, a função reaproveita a proporção que `ParametroTributario` já tem
+  por ano: `cbsPct+ibsPct` = fatia sob split payment (crédito ~imediato,
+  segregado no instante do pagamento — pesquisa em docs/05) e
+  `pisCofinsPct+icmsIssPct` = fatia sob PIS/Cofins+ICMS/ISS (crédito depende
+  do fornecedor recolher, prazo indeterminado). O único input novo do
+  usuário é `prazoPagamentoFornecedorDias`, usado só para contextualizar a
+  frase de recomendação (quando o dinheiro sai), não para calcular a
+  divisão protegido/em risco. Roda inteiramente no cliente, sem endpoint
+  novo — `/api/parametros` já devolve os quatro percentuais por ano.
 
 ## Regras não-negociáveis (extraídas dos documentos — não reabrir sem discutir)
 
