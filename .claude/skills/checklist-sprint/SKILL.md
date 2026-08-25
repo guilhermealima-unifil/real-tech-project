@@ -25,9 +25,10 @@ Para cada item, indique ✅ (confirmado), ❌ (confirmado que falta) ou ⚠️
 4. **Seed rodado em produção** — não dá para confirmar via código local se
    rodou em produção; verifique se `prisma/seed.ts` existe e pergunte ao
    usuário se já rodou contra o banco de produção.
-5. **`POST /api/simular` testado ponta a ponta** (navegador → banco) —
-   verifique se `app/api/simular/route.ts` (ou `src/app/api/simular/route.ts`)
-   existe; a execução real precisa ser confirmada pelo usuário.
+5. **`POST /api/simular-cenarios` testado ponta a ponta** (navegador → banco)
+   — verifique se `src/app/api/simular-cenarios/route.ts` existe (rota da
+   Fase 3; substituiu `/api/simular` da Fase 2, removida); a execução real
+   precisa ser confirmada pelo usuário.
 6. **Variáveis de ambiente conferidas em Production na Vercel, não só em
    Development** — não verificável localmente; lembre o usuário de checar no
    dashboard da Vercel (Settings → Environment Variables).

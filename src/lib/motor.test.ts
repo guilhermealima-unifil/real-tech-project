@@ -190,4 +190,88 @@ describe("simular — motor de cálculo tributário", () => {
     );
     expect(resultado.descontoMaximoPct).toBeGreaterThan(0);
   });
+
+  // Cenários de repasse gradual/absorção — Fase 3. Ver CLAUDE.md, seção
+  // "Desenho do motor", para a fórmula e o porquê de não afetarem o markup.
+  describe("cenários de repasse (Fase 3)", () => {
+    it("gradual, multiplicador — preço sobe menos que o integral nos anos intermediários e converge no último ano", () => {
+      const entradaBase = {
+        custoCompra: 100,
+        formulaTipo: "multiplicador" as const,
+        despesaFixaPct: 0.2,
+        margemAlvoPct: 0.35,
+        margemMinimaPct: 0.3,
+        regime: "simples" as const,
+      };
+
+      const integral = simular(entradaBase, PARAMETROS_TESTE);
+      const gradual = simular(
+        { ...entradaBase, cenarioRepasse: "gradual" },
+        PARAMETROS_TESTE,
+      );
+
+      // 2027 é o segundo ano (índice 1 de 7) — só uma fração do delta é repassada.
+      expect(resultadoDoAno(gradual, 2027).preco).toBeLessThan(
+        resultadoDoAno(integral, 2027).preco,
+      );
+      expect(resultadoDoAno(gradual, 2027).margemResultante).toBeLessThan(0.35);
+
+      // No último ano de parametros, gradual converge para o mesmo preço do integral.
+      expect(resultadoDoAno(gradual, 2033).preco).toBeCloseTo(
+        resultadoDoAno(integral, 2033).preco,
+        2,
+      );
+      expect(resultadoDoAno(gradual, 2033).margemResultante).toBeCloseTo(0.35, 4);
+    });
+
+    it("absorção, multiplicador — preço nunca sobe além do ano-base, margem cai com o delta", () => {
+      const resultados = simular(
+        {
+          custoCompra: 100,
+          formulaTipo: "multiplicador",
+          despesaFixaPct: 0.2,
+          margemAlvoPct: 0.35,
+          // Alto o bastante para o delta de 2033 (3,85 p.p., ver PARAMETROS_TESTE)
+          // furar o mínimo, provando que o alerta dispara sob absorção total.
+          margemMinimaPct: 0.32,
+          regime: "simples",
+          cenarioRepasse: "absorcao",
+        },
+        PARAMETROS_TESTE,
+      );
+
+      const base = resultadoDoAno(resultados, 2026);
+      for (const resultado of resultados) {
+        expect(resultado.preco).toBe(base.preco);
+      }
+
+      const ultimo = resultadoDoAno(resultados, 2033);
+      expect(ultimo.margemResultante).toBeCloseTo(0.3115, 4);
+      expect(ultimo.margemResultante).toBeLessThan(0.32);
+      expect(ultimo.alertaDisparado).toBe(true);
+    });
+
+    it("markup — cenarioRepasse não muda o preço (a fórmula já não repassa tributo, por definição)", () => {
+      const entradaBase = {
+        custoCompra: 100,
+        formulaTipo: "markup" as const,
+        markupPct: 0.3,
+        margemAlvoPct: 0.3,
+        margemMinimaPct: 0.25,
+        regime: "lucroReal" as const,
+      };
+
+      const integral = simular(entradaBase, PARAMETROS_TESTE);
+      const gradual = simular({ ...entradaBase, cenarioRepasse: "gradual" }, PARAMETROS_TESTE);
+      const absorcao = simular({ ...entradaBase, cenarioRepasse: "absorcao" }, PARAMETROS_TESTE);
+
+      for (const ano of [2026, 2029, 2033]) {
+        expect(resultadoDoAno(gradual, ano).preco).toBe(resultadoDoAno(integral, ano).preco);
+        expect(resultadoDoAno(absorcao, ano).preco).toBe(resultadoDoAno(integral, ano).preco);
+        expect(resultadoDoAno(gradual, ano).margemResultante).toBe(
+          resultadoDoAno(integral, ano).margemResultante,
+        );
+      }
+    });
+  });
 });

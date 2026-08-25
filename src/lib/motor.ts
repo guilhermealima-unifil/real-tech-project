@@ -44,7 +44,11 @@ export interface SimularEntrada {
   regime: Regime;
   tetoPracaMin?: number;
   tetoPracaMax?: number;
-  /** Default "integral" — "gradual" e "absorcao" ainda não implementados (Fase 3). */
+  /**
+   * Default "integral". Só afeta `formulaTipo === "multiplicador"` — ver
+   * CLAUDE.md, seção "Desenho do motor", para o porquê do markup ficar de
+   * fora.
+   */
   cenarioRepasse?: CenarioRepasse;
 }
 
@@ -84,12 +88,6 @@ export function simular(
   }
 
   const cenarioRepasse = entrada.cenarioRepasse ?? "integral";
-  if (cenarioRepasse !== "integral") {
-    throw new Error(
-      `Cenário de repasse "${cenarioRepasse}" ainda não implementado (Fase 3, ` +
-        `docs/00-plano-implementacao.md). Só "integral" está disponível hoje.`,
-    );
-  }
 
   if (entrada.formulaTipo === "multiplicador" && entrada.despesaFixaPct === undefined) {
     throw new Error("despesaFixaPct é obrigatório quando formulaTipo é 'multiplicador'.");
@@ -105,11 +103,33 @@ export function simular(
   }
   const tributoBaseFrac = tributoTotalPctInteiro(parametroBase) / 100;
 
+  const idxBase = parametrosOrdenados.findIndex((p) => p.ano === ANO_BASE);
+  const idxUltimo = parametrosOrdenados.length - 1;
+
+  /**
+   * Fração do delta tributário do ano que é repassada ao preço (o resto
+   * fica com a margem). "integral" repassa tudo de uma vez (comportamento
+   * original, cenário default). "absorcao" nunca repassa — o preço fica
+   * congelado no nível do ano-base e a margem cai o quanto o delta subir.
+   * "gradual" faz a fração crescer linearmente até chegar a 1 no ÚLTIMO
+   * ano presente em `parametros` (hoje 2033, fim da transição prevista na
+   * LC 214/2025 — ver docs/05) — não é um valor fixo no código porque o
+   * seed é quem define até quando a transição vai.
+   */
+  function fracaoRepasse(indice: number): number {
+    if (cenarioRepasse === "integral") return 1;
+    if (cenarioRepasse === "absorcao") return 0;
+    if (idxUltimo === idxBase) return 1;
+    const fracao = (indice - idxBase) / (idxUltimo - idxBase);
+    return Math.min(Math.max(fracao, 0), 1);
+  }
+
   const teto = entrada.tetoPracaMax ?? entrada.tetoPracaMin ?? null;
 
-  return parametrosOrdenados.map((parametro) => {
+  return parametrosOrdenados.map((parametro, indice) => {
     const tributoAnoFrac = tributoTotalPctInteiro(parametro) / 100;
     const deltaTributo = tributoAnoFrac - tributoBaseFrac;
+    const deltaTributoRepassado = deltaTributo * fracaoRepasse(indice);
 
     let preco: number;
     let piso: number;
@@ -117,9 +137,13 @@ export function simular(
 
     if (entrada.formulaTipo === "multiplicador") {
       const despesaFixaPct = entrada.despesaFixaPct as number;
-      preco = entrada.custoCompra * (1 + despesaFixaPct + deltaTributo + entrada.margemAlvoPct);
+      // Piso reflete sempre o delta CHEIO (custo real do ano), independente
+      // do cenário — é a régua de "quanto custaria cobrir o imposto de
+      // verdade", não do que a estratégia de repasse escolheu praticar.
+      preco =
+        entrada.custoCompra * (1 + despesaFixaPct + deltaTributoRepassado + entrada.margemAlvoPct);
       piso = entrada.custoCompra * (1 + despesaFixaPct + deltaTributo + entrada.margemMinimaPct);
-      margemResultante = entrada.margemAlvoPct;
+      margemResultante = entrada.margemAlvoPct - (deltaTributo - deltaTributoRepassado);
     } else {
       const markupPct = entrada.markupPct as number;
       preco = entrada.custoCompra * (1 + markupPct);

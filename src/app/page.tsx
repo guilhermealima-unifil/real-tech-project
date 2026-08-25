@@ -1,9 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import type { ResultadoAno } from "@/lib/motor";
+import type { CenarioRepasse, ResultadoAno } from "@/lib/motor";
 import { FaixaViavelChart } from "@/components/FaixaViavelChart";
 import { PainelRecomendacao } from "@/components/PainelRecomendacao";
+
+const CENARIOS: { valor: CenarioRepasse; rotulo: string }[] = [
+  { valor: "integral", rotulo: "Repasse integral" },
+  { valor: "gradual", rotulo: "Repasse gradual" },
+  { valor: "absorcao", rotulo: "Absorção" },
+];
 
 interface Ramo {
   id: string;
@@ -91,11 +97,15 @@ export default function Home() {
   const [ramos, setRamos] = useState<Ramo[]>([]);
   const [parametrosInfo, setParametrosInfo] = useState<ParametroInfo | null>(null);
   const [form, setForm] = useState<FormState>(FORM_INICIAL);
-  const [resultados, setResultados] = useState<ResultadoAno[] | null>(null);
+  const [cenarios, setCenarios] = useState<Record<CenarioRepasse, ResultadoAno[]> | null>(null);
+  const [cenarioSelecionado, setCenarioSelecionado] = useState<CenarioRepasse>("integral");
   const [ramoSimulado, setRamoSimulado] = useState<{ rotulo: string; aliquotaSugerida: number } | null>(null);
   const [anoSelecionado, setAnoSelecionado] = useState<number>(2026);
+  const [descontoPedidoPct, setDescontoPedidoPct] = useState<number>(0);
   const [erros, setErros] = useState<string[]>([]);
   const [carregando, setCarregando] = useState(false);
+
+  const resultados = cenarios ? cenarios[cenarioSelecionado] : null;
 
   useEffect(() => {
     fetch("/api/ramos")
@@ -125,7 +135,8 @@ export default function Home() {
     const ramo = ramos.find((r) => r.chave === caso.ramoChave);
     if (!ramo) return;
     setForm({ ramoId: ramo.id, ...caso.form });
-    setResultados(null);
+    setCenarios(null);
+    setDescontoPedidoPct(0);
     setErros([]);
   }
 
@@ -145,11 +156,10 @@ export default function Home() {
       regime: form.regime,
       tetoPracaMin: numOrUndefined(form.tetoPracaMin),
       tetoPracaMax: numOrUndefined(form.tetoPracaMax),
-      cenarioRepasse: "integral",
     };
 
     try {
-      const resposta = await fetch("/api/simular", {
+      const resposta = await fetch("/api/simular-cenarios", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(corpo),
@@ -157,12 +167,14 @@ export default function Home() {
       const data = await resposta.json();
       if (!resposta.ok) {
         setErros(data.erros ?? ["Erro ao simular."]);
-        setResultados(null);
+        setCenarios(null);
         return;
       }
-      setResultados(data.resultados as ResultadoAno[]);
+      setCenarios(data.cenarios as Record<CenarioRepasse, ResultadoAno[]>);
+      setCenarioSelecionado("integral");
       setRamoSimulado(data.ramo);
       setAnoSelecionado(2026);
+      setDescontoPedidoPct(0);
     } catch {
       setErros(["Não foi possível falar com o servidor. Verifique a rede e tente novamente."]);
     } finally {
@@ -392,6 +404,26 @@ export default function Home() {
                 <span className="text-xs text-zinc-500 dark:text-zinc-400">{ramoSimulado.rotulo}</span>
               )}
             </div>
+
+            <div className="mb-4 flex gap-2" role="tablist" aria-label="Cenário de repasse">
+              {CENARIOS.map((cenario) => (
+                <button
+                  key={cenario.valor}
+                  type="button"
+                  role="tab"
+                  aria-selected={cenarioSelecionado === cenario.valor}
+                  onClick={() => setCenarioSelecionado(cenario.valor)}
+                  className={
+                    cenarioSelecionado === cenario.valor
+                      ? "rounded-full bg-zinc-900 px-3 py-1 text-xs font-medium text-white dark:bg-zinc-50 dark:text-zinc-900"
+                      : "rounded-full border border-zinc-300 px-3 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-900"
+                  }
+                >
+                  {cenario.rotulo}
+                </button>
+              ))}
+            </div>
+
             <FaixaViavelChart
               resultados={resultados}
               anoSelecionado={anoSelecionado}
@@ -400,7 +432,12 @@ export default function Home() {
           </section>
         )}
 
-        <PainelRecomendacao resultado={resultadoSelecionado} />
+        <PainelRecomendacao
+          resultado={resultadoSelecionado}
+          resultados={resultados ?? []}
+          descontoPedidoPct={descontoPedidoPct}
+          onDescontoPedidoChange={setDescontoPedidoPct}
+        />
 
         {parametrosInfo && (
           <footer className="text-xs text-zinc-400 dark:text-zinc-500">

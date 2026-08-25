@@ -7,6 +7,13 @@ confunda os números abaixo com dado definitivo. Os documentos 00 e 04 são
 explícitos: "as regras da transição ainda mudam... os parâmetros ficam em
 um arquivo versionado e editável, separado do motor."
 
+**Quando validar: Sprint Day, 26/08/2026** (o dia de construção presencial
+que antecede o pitch de 27/08). Até lá este checklist fica propositalmente
+em aberto — não é bloqueio de código, é o único item da lista que depende
+de uma conversa humana com quem entende de tributo. Enquanto isso, os
+números da tabela abaixo continuam servindo para testar o motor e as
+telas, só não podem ser citados como definitivos na apresentação.
+
 ## De onde vieram esses números
 
 Pesquisa na web feita em 25/08/2026 sobre o cronograma de transição da
@@ -88,3 +95,41 @@ mesmo valor-base (18,00 × 90%, 80%, 70%, 60%).
 aplicação mostrar deve ser tratado como estimativa — é exatamente o
 discurso já preparado para o Q&A do jurado (Documento 2, seção 8.2):
 "a precisão do centavo é trabalho do contador".**
+
+## Perguntas para o contador (roteiro em linguagem simples)
+
+Escrito para quem só entende de código, não de tributo — leia literalmente
+para o Jonathas (ou outro contador) no Sprint Day. Cada pergunta corresponde
+a um item do checklist acima; a resposta vai direto para a tabela do seed
+(`prisma/seed.ts`) e para `ParametroTributarioAno` em `src/lib/motor.ts`.
+
+1. **"Qual é a alíquota de referência da CBS, ano a ano, de 2027 até 2033?"**
+   — hoje o app usa 8,80% fixo nesse período. Se a resposta variar ano a
+   ano, precisamos da lista completa, não só de um número.
+2. **"E a alíquota de referência do IBS, especificamente a de 2033 (quando a
+   transição termina)?"** — hoje o app usa 17,70%. Isso é o que mais muda o
+   total: a diferença entre 26,5% e 27% (a outra fonte que pesquisamos)
+   vem quase toda daqui.
+3. **"Para uma loja de varejo pequena/média, é mais realista usar o PIS/Cofins
+   do regime cumulativo (3,65%) ou do não-cumulativo (9,25%) como padrão?"**
+   — pergunte também se isso muda por ramo (eletro/móveis, material
+   elétrico/construção, vestuário/calçados) ou se dá pra usar um só valor
+   para os três.
+4. **"18% de ICMS/ISS é uma aproximação razoável para uma loja em Londrina/PR
+   nesses três ramos, ou isso varia demais para ter um número único?"** — se
+   variar por ramo, precisamos de um valor por ramo, não um valor global.
+5. **"A redução do ICMS/ISS entre 2029 e 2032 realmente começa em 2029 (90%
+   do valor original) e cai 10 pontos percentuais por ano até sumir em
+   2033? Ou já existe alguma redução em 2027/2028?"** — é a pergunta mais
+   fácil de confirmar porque está na letra da lei (LC 214/2025), então é
+   mais para confirmar que lemos certo do que para obter um dado novo.
+6. **"Faz sentido usar 26,5% como a alíquota de referência sugerida para os
+   três ramos do MVP, ou algum deles deveria aparecer com um número
+   diferente na tela?"** — essa é só a alíquota de exibição/sugestão
+   (`Ramo.aliquotaSugerida`), não entra no cálculo do preço; é a alíquota
+   individual (pergunta 1–4) que decide o resultado.
+
+Não é necessário perguntar sobre "cenário de repasse" (integral/gradual/
+absorção) — isso é uma escolha de estratégia de preço do lojista, não uma
+regra tributária, e já foi decidido em código (ver CLAUDE.md, seção
+"Desenho do motor"). O contador só entra nos seis pontos acima.

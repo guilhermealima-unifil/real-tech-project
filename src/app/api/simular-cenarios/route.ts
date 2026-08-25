@@ -1,7 +1,19 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { simular, type ParametroTributarioAno } from "@/lib/motor";
+import { simular, type CenarioRepasse, type ParametroTributarioAno, type ResultadoAno } from "@/lib/motor";
 import { validarEntradaSimulacao } from "@/lib/validacao";
+
+/**
+ * Roda os três cenários de repasse (integral, gradual, absorção) de uma vez
+ * só, para a tela de cenários sobrepostos (docs/02, "Tela de cenários" —
+ * Fase 3). Reaproveita a mesma validação e o mesmo carregamento de
+ * ramo/parâmetros de `/api/simular`, mas devolve os três resultados juntos
+ * em vez de fazer o cliente disparar três requisições. Qualquer
+ * `cenarioRepasse` enviado no corpo é ignorado — os três são sempre
+ * calculados.
+ */
+
+const CENARIOS: CenarioRepasse[] = ["integral", "gradual", "absorcao"];
 
 export async function POST(request: Request) {
   let body: unknown;
@@ -43,21 +55,24 @@ export async function POST(request: Request) {
   }));
 
   try {
-    const resultados = simular(
-      {
-        custoCompra: entrada.custoCompra,
-        formulaTipo: entrada.formulaTipo,
-        despesaFixaPct: entrada.despesaFixaPct !== undefined ? entrada.despesaFixaPct / 100 : undefined,
-        markupPct: entrada.markupPct !== undefined ? entrada.markupPct / 100 : undefined,
-        margemAlvoPct: entrada.margemAlvoPct / 100,
-        margemMinimaPct: entrada.margemMinimaPct / 100,
-        regime: entrada.regime,
-        tetoPracaMin: entrada.tetoPracaMin,
-        tetoPracaMax: entrada.tetoPracaMax,
-        cenarioRepasse: entrada.cenarioRepasse,
-      },
-      parametros,
-    );
+    const cenarios: Record<CenarioRepasse, ResultadoAno[]> = {} as Record<CenarioRepasse, ResultadoAno[]>;
+    for (const cenarioRepasse of CENARIOS) {
+      cenarios[cenarioRepasse] = simular(
+        {
+          custoCompra: entrada.custoCompra,
+          formulaTipo: entrada.formulaTipo,
+          despesaFixaPct: entrada.despesaFixaPct !== undefined ? entrada.despesaFixaPct / 100 : undefined,
+          markupPct: entrada.markupPct !== undefined ? entrada.markupPct / 100 : undefined,
+          margemAlvoPct: entrada.margemAlvoPct / 100,
+          margemMinimaPct: entrada.margemMinimaPct / 100,
+          regime: entrada.regime,
+          tetoPracaMin: entrada.tetoPracaMin,
+          tetoPracaMax: entrada.tetoPracaMax,
+          cenarioRepasse,
+        },
+        parametros,
+      );
+    }
 
     return NextResponse.json({
       ramo: {
@@ -66,7 +81,7 @@ export async function POST(request: Request) {
         rotulo: ramo.rotulo,
         aliquotaSugerida: Number(ramo.aliquotaSugerida),
       },
-      resultados,
+      cenarios,
     });
   } catch (erro) {
     const mensagem = erro instanceof Error ? erro.message : "Erro desconhecido ao simular.";
