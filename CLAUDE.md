@@ -35,7 +35,8 @@ eles.
 - [x] `DATABASE_URL` sincronizada localmente (`vercel env pull`), `.env` no `.gitignore`.
 - [x] `src/lib/prisma.ts` (singleton do Prisma Client com `@prisma/adapter-pg`).
 - [x] Vitest instalado.
-- [ ] `src/lib/motor.ts` (função pura `simular()`) e os 8 testes de aceitação — **o algoritmo exato de como a carga tributária por ano combina com as duas fórmulas de preço ainda não está fechado, ver seção abaixo**.
+- [x] `src/lib/motor.ts` (função pura `simular()`) e os 8 testes de aceitação — todos passando. Algoritmo "delta desde o ano-base" (ver seção abaixo). Só cenário "integral"; "gradual"/"absorcao" lançam erro (Fase 3).
+- [ ] `mensagemRecomendacao` (frases fixas) — motor retorna `null`, texto ainda não escrito.
 - [ ] `prisma/seed.ts` com ramos, parâmetros 2026–2033 e os casos reais.
 - [ ] API routes (`/api/ramos`, `/api/parametros`, `/api/simular`, ...).
 - [ ] Telas (entrada, faixa viável, cenários, desconto, recomendação).
@@ -71,6 +72,37 @@ contador) e o contrato dos endpoints.
   repositório `prisma/skills`, mantido por decisão do time. Não confundir
   com as 3 skills que desenhamos para este projeto (abaixo).
 
+## Desenho do motor (`src/lib/motor.ts`) — decisão que não está nos documentos originais
+
+Os documentos 0/1/2 descrevem os 8 testes de aceitação e as duas fórmulas
+base, mas não especificam como a carga tributária de cada ano
+(`ParametroTributario`) se combina com elas. Isso foi decidido em conversa
+com o usuário, depois de ler também docs/03 e docs/04:
+
+- **Abordagem "delta desde o ano-base" (2026)**: `despesaFixaPct`/`markupPct`,
+  como o empresário informa, já incluem impostos do ano-base (ver
+  entrevistas, docs/04 seção 5). Sem dado para decompor esse percentual, o
+  motor soma só a *variação* da carga tributária em relação a 2026 —
+  `deltaTributo(ano) = tributoTotalPct(ano) − tributoTotalPct(2026)` — em vez
+  de somar a carga tributária inteira de cada ano (o que exigiria saber
+  quanto do percentual original já é imposto, dado que não existe).
+- **`Ramo.aliquotaSugerida` / `entrada.aliquota` não entra na fórmula** —
+  é só valor de referência/exibição. Quem calcula ano a ano é sempre o
+  `ParametroTributario`.
+- **Unidade dos percentuais do `ParametroTributario`**: porcentagem inteira
+  (`18` = 18%, igual ao exemplo de seed do Documento 1), convertida para
+  fração (`÷100`) dentro do motor antes de somar com `despesaFixaPct`/
+  `margemAlvoPct`/`margemMinimaPct`, que já são fração decimal (`0.20` =
+  20%). Não uniformizar sem atualizar as duas pontas.
+- **Precisão numérica**: `number` nativo do JS, arredondado só na saída
+  (`preco`: 2 casas, percentuais: 4 casas) — decisão explícita para não
+  adicionar uma lib de decimal hoje; ver `licoes-aprendidas` se isso
+  precisar mudar depois.
+- **`cenarioRepasse`**: só `"integral"` está implementado — `"gradual"` e
+  `"absorcao"` lançam erro (`Error`), são trabalho da Fase 3.
+- **`mensagemRecomendacao` sempre `null`** por enquanto — as frases fixas
+  ainda não foram escritas/revisadas.
+
 ## Regras não-negociáveis (extraídas dos documentos — não reabrir sem discutir)
 
 - **O motor (`lib/motor.ts`) é uma função pura**, sem import de banco ou
@@ -105,8 +137,7 @@ npx prisma format        # formata prisma/schema.prisma
 npx prisma db push       # aplica o schema no banco (sem migration versionada)
 npx prisma generate      # gera o Prisma Client em src/generated/prisma
 npx tsx prisma/seed.ts   # roda o seed (quando existir)
-npx vitest run           # roda os testes de aceitação do motor (quando existirem)
-```
+npx vitest run           # roda os testes de aceitação do motor
 ```
 
 ## Skills deste projeto
