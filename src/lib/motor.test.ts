@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { simular, type ParametroTributarioAno } from "./motor";
+import { calcularImpactoCaixa, simular, type ParametroTributarioAno } from "./motor";
 
 /**
  * Parâmetros ILUSTRATIVOS só para testar o motor — não são os valores reais
@@ -272,6 +272,44 @@ describe("simular — motor de cálculo tributário", () => {
           resultadoDoAno(integral, ano).margemResultante,
         );
       }
+    });
+  });
+
+  // Impacto no caixa (Fase 5) — ver CLAUDE.md, seção "Desenho do motor", e
+  // docs/05 para o porquê de não modelar um prazo em dias para a fatia em
+  // risco (é indeterminada por definição, não um número que dá pra estimar).
+  describe("calcularImpactoCaixa — Fase 5", () => {
+    it("2026 (fase de teste do split payment): quase todo o imposto da compra está em risco, não protegido", () => {
+      const resultados = calcularImpactoCaixa(100, 30, PARAMETROS_TESTE);
+      const ano2026 = resultados.find((r) => r.ano === 2026)!;
+
+      // cbsPct 0,9 + ibsPct 0,1 = 1,0% protegido; pisCofinsPct 3,65 + icmsIssPct 18 = 21,65% em risco.
+      expect(ano2026.valorProtegido).toBe(1);
+      expect(ano2026.valorEmRisco).toBe(21.65);
+      expect(ano2026.valorEmRisco).toBeGreaterThan(ano2026.valorProtegido);
+    });
+
+    it("2033 (fim da transição): todo o imposto da compra já está protegido pelo split payment", () => {
+      const resultados = calcularImpactoCaixa(100, 30, PARAMETROS_TESTE);
+      const ano2033 = resultados.find((r) => r.ano === 2033)!;
+
+      expect(ano2033.valorEmRisco).toBe(0);
+      expect(ano2033.valorProtegido).toBe(26.5);
+      expect(ano2033.mensagemRecomendacao).toContain("totalmente");
+    });
+
+    it("valorProtegido + valorEmRisco bate com o total tributário do ano, aplicado sobre o custo", () => {
+      const resultados = calcularImpactoCaixa(200, 30, PARAMETROS_TESTE);
+      for (const resultado of resultados) {
+        const parametro = PARAMETROS_TESTE.find((p) => p.ano === resultado.ano)!;
+        const totalEsperado =
+          (200 * (parametro.cbsPct + parametro.ibsPct + parametro.pisCofinsPct + parametro.icmsIssPct)) / 100;
+        expect(resultado.valorProtegido + resultado.valorEmRisco).toBeCloseTo(totalEsperado, 2);
+      }
+    });
+
+    it("custoCompra inválido lança erro", () => {
+      expect(() => calcularImpactoCaixa(0, 30, PARAMETROS_TESTE)).toThrow();
     });
   });
 });

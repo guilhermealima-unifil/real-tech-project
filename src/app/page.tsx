@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import type { CenarioRepasse, ResultadoAno } from "@/lib/motor";
+import { calcularImpactoCaixa, type CenarioRepasse, type ImpactoCaixaAno, type ParametroTributarioAno, type ResultadoAno } from "@/lib/motor";
 import { FaixaViavelChart } from "@/components/FaixaViavelChart";
+import { ImpactoCaixaChart } from "@/components/ImpactoCaixaChart";
 import { PainelRecomendacao } from "@/components/PainelRecomendacao";
 
 const CENARIOS: { valor: CenarioRepasse; rotulo: string }[] = [
@@ -18,8 +19,7 @@ interface Ramo {
   aliquotaSugerida: number;
 }
 
-interface ParametroInfo {
-  ano: number;
+interface ParametroInfo extends ParametroTributarioAno {
   vigencia: string;
   fonte: string;
 }
@@ -38,6 +38,7 @@ interface FormState {
   regime: Regime;
   tetoPracaMin: string;
   tetoPracaMax: string;
+  prazoPagamentoFornecedorDias: string;
 }
 
 const FORM_INICIAL: FormState = {
@@ -51,6 +52,7 @@ const FORM_INICIAL: FormState = {
   regime: "simples",
   tetoPracaMin: "",
   tetoPracaMax: "",
+  prazoPagamentoFornecedorDias: "30",
 };
 
 /** Casos reais das entrevistas (docs/00, seção 6; prisma/seed.ts) — botão de demonstração. */
@@ -68,6 +70,7 @@ const CASOS_REAIS: Record<string, { rotulo: string; ramoChave: string; form: Omi
       regime: "simples",
       tetoPracaMin: "",
       tetoPracaMax: "",
+      prazoPagamentoFornecedorDias: "30",
     },
   },
   inpacto: {
@@ -83,6 +86,7 @@ const CASOS_REAIS: Record<string, { rotulo: string; ramoChave: string; form: Omi
       regime: "lucroReal",
       tetoPracaMin: "",
       tetoPracaMax: "",
+      prazoPagamentoFornecedorDias: "30",
     },
   },
 };
@@ -95,10 +99,11 @@ function numOrUndefined(valor: string): number | undefined {
 
 export default function Home() {
   const [ramos, setRamos] = useState<Ramo[]>([]);
-  const [parametrosInfo, setParametrosInfo] = useState<ParametroInfo | null>(null);
+  const [parametros, setParametros] = useState<ParametroInfo[]>([]);
   const [form, setForm] = useState<FormState>(FORM_INICIAL);
   const [cenarios, setCenarios] = useState<Record<CenarioRepasse, ResultadoAno[]> | null>(null);
   const [cenarioSelecionado, setCenarioSelecionado] = useState<CenarioRepasse>("integral");
+  const [impactoCaixa, setImpactoCaixa] = useState<ImpactoCaixaAno[] | null>(null);
   const [ramoSimulado, setRamoSimulado] = useState<{ rotulo: string; aliquotaSugerida: number } | null>(null);
   const [anoSelecionado, setAnoSelecionado] = useState<number>(2026);
   const [descontoPedidoPct, setDescontoPedidoPct] = useState<number>(0);
@@ -106,6 +111,7 @@ export default function Home() {
   const [carregando, setCarregando] = useState(false);
 
   const resultados = cenarios ? cenarios[cenarioSelecionado] : null;
+  const parametrosInfo = parametros[0] ?? null;
 
   useEffect(() => {
     fetch("/api/ramos")
@@ -115,9 +121,7 @@ export default function Home() {
 
     fetch("/api/parametros")
       .then((r) => r.json())
-      .then((data: ParametroInfo[]) => {
-        if (data.length > 0) setParametrosInfo(data[0]);
-      })
+      .then((data: ParametroInfo[]) => setParametros(data))
       .catch(() => {});
   }, []);
 
@@ -136,6 +140,7 @@ export default function Home() {
     if (!ramo) return;
     setForm({ ramoId: ramo.id, ...caso.form });
     setCenarios(null);
+    setImpactoCaixa(null);
     setDescontoPedidoPct(0);
     setErros([]);
   }
@@ -168,6 +173,7 @@ export default function Home() {
       if (!resposta.ok) {
         setErros(data.erros ?? ["Erro ao simular."]);
         setCenarios(null);
+        setImpactoCaixa(null);
         return;
       }
       setCenarios(data.cenarios as Record<CenarioRepasse, ResultadoAno[]>);
@@ -175,14 +181,27 @@ export default function Home() {
       setRamoSimulado(data.ramo);
       setAnoSelecionado(2026);
       setDescontoPedidoPct(0);
+
+      // Impacto no caixa (Fase 5) não depende do banco — roda no cliente com
+      // os parâmetros já carregados em /api/parametros. Ver CLAUDE.md, seção
+      // "Desenho do motor".
+      const custoCompra = numOrUndefined(form.custoCompra);
+      const prazoPagamentoFornecedorDias = numOrUndefined(form.prazoPagamentoFornecedorDias);
+      if (custoCompra !== undefined && prazoPagamentoFornecedorDias !== undefined && parametros.length > 0) {
+        setImpactoCaixa(calcularImpactoCaixa(custoCompra, prazoPagamentoFornecedorDias, parametros));
+      } else {
+        setImpactoCaixa(null);
+      }
     } catch {
       setErros(["Não foi possível falar com o servidor. Verifique a rede e tente novamente."]);
+      setImpactoCaixa(null);
     } finally {
       setCarregando(false);
     }
   }
 
   const resultadoSelecionado = resultados?.find((r) => r.ano === anoSelecionado) ?? null;
+  const impactoCaixaSelecionado = impactoCaixa?.find((r) => r.ano === anoSelecionado) ?? null;
 
   return (
     <div className="flex flex-1 flex-col bg-zinc-50 dark:bg-black">
@@ -348,6 +367,24 @@ export default function Home() {
               </select>
             </label>
 
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="font-medium text-zinc-700 dark:text-zinc-300">
+                Prazo de pagamento ao fornecedor (dias)
+              </span>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                required
+                value={form.prazoPagamentoFornecedorDias}
+                onChange={(e) => atualizarCampo("prazoPagamentoFornecedorDias", e.target.value)}
+                className="rounded border border-zinc-300 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900"
+              />
+              <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                Usado só no impacto no caixa (abaixo) — em quantos dias você costuma pagar o fornecedor.
+              </span>
+            </label>
+
             <div className="flex flex-col gap-1 text-sm sm:col-span-2">
               <span className="font-medium text-zinc-700 dark:text-zinc-300">
                 Preço da praça (opcional) — o que a concorrência pratica
@@ -438,6 +475,32 @@ export default function Home() {
           descontoPedidoPct={descontoPedidoPct}
           onDescontoPedidoChange={setDescontoPedidoPct}
         />
+
+        {impactoCaixa && impactoCaixa.length > 0 && (
+          <section className="rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-950">
+            <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
+              Impacto no caixa — crédito da compra, ano a ano
+            </h2>
+            <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+              Não é só quanto se paga de imposto, é quando esse crédito fica disponível. Verde: já protegido
+              pelo split payment. Âmbar: ainda depende do fornecedor recolher.
+            </p>
+
+            <div className="mt-4">
+              <ImpactoCaixaChart
+                resultados={impactoCaixa}
+                anoSelecionado={anoSelecionado}
+                onSelecionarAno={setAnoSelecionado}
+              />
+            </div>
+
+            {impactoCaixaSelecionado && (
+              <p className="mt-4 rounded border border-zinc-200 bg-zinc-50 p-3 text-sm text-zinc-800 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200">
+                {impactoCaixaSelecionado.mensagemRecomendacao}
+              </p>
+            )}
+          </section>
+        )}
 
         {parametrosInfo && (
           <footer className="text-xs text-zinc-400 dark:text-zinc-500">

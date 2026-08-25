@@ -17,7 +17,7 @@
  * Testes 3 e 4 sem inventar nenhum dado que as entrevistas não deram.
  */
 
-import { recomendacaoParaAno } from "./frases";
+import { recomendacaoCaixaParaAno, recomendacaoParaAno } from "./frases";
 
 export type FormulaTipo = "multiplicador" | "markup";
 export type Regime = "simples" | "lucroReal";
@@ -50,6 +50,15 @@ export interface SimularEntrada {
    * fora.
    */
   cenarioRepasse?: CenarioRepasse;
+}
+
+export interface ImpactoCaixaAno {
+  ano: number;
+  /** R$ do imposto embutido na compra já sob split payment — crédito disponível no ato do pagamento (à vista) ou parcela a parcela (docs/05). */
+  valorProtegido: number;
+  /** R$ do imposto embutido na compra ainda sob PIS/Cofins + ICMS/ISS — crédito sujeito ao fornecedor recolher, prazo indeterminado. */
+  valorEmRisco: number;
+  mensagemRecomendacao: string;
 }
 
 export interface ResultadoAno {
@@ -182,4 +191,46 @@ export function simular(
       }),
     };
   });
+}
+
+/**
+ * Impacto no caixa (Fase 5) — não modela dias, modela quanto do imposto da
+ * COMPRA (não da venda) já está protegido pelo split payment vs. ainda sob
+ * o regime antigo. Ver CLAUDE.md, seção "Desenho do motor", e docs/05 para
+ * o porquê: o prazo de recuperação de crédito no regime antigo é incerto
+ * por definição (a própria dor relatada pelo contador na entrevista), então
+ * o motor não inventa um número de dias para ele — só quantifica o valor em
+ * R$ que está de um lado ou do outro, ano a ano.
+ *
+ * `cbsPct + ibsPct` = fatia sob split payment (crédito ~imediato, à vista
+ * ou parcela a parcela). `pisCofinsPct + icmsIssPct` = fatia sob o regime
+ * antigo (crédito depende do fornecedor recolher, prazo indeterminado).
+ */
+export function calcularImpactoCaixa(
+  custoCompra: number,
+  prazoPagamentoFornecedorDias: number,
+  parametros: ParametroTributarioAno[],
+): ImpactoCaixaAno[] {
+  if (custoCompra <= 0) {
+    throw new Error("custoCompra deve ser maior que zero.");
+  }
+
+  return [...parametros]
+    .sort((a, b) => a.ano - b.ano)
+    .map((parametro) => {
+      const valorProtegido = round2((custoCompra * (parametro.cbsPct + parametro.ibsPct)) / 100);
+      const valorEmRisco = round2((custoCompra * (parametro.pisCofinsPct + parametro.icmsIssPct)) / 100);
+
+      return {
+        ano: parametro.ano,
+        valorProtegido,
+        valorEmRisco,
+        mensagemRecomendacao: recomendacaoCaixaParaAno({
+          ano: parametro.ano,
+          valorProtegido,
+          valorEmRisco,
+          prazoPagamentoFornecedorDias,
+        }),
+      };
+    });
 }

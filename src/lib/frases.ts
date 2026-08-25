@@ -61,3 +61,43 @@ export function recomendacaoParaAno(dados: DadosParaRecomendacao): string {
     `— qualquer desconto fura o mínimo de ${formatarPct(dados.margemMinimaPct)}% que você definiu.`
   );
 }
+
+export interface DadosParaRecomendacaoCaixa {
+  ano: number;
+  valorProtegido: number;
+  valorEmRisco: number;
+  prazoPagamentoFornecedorDias: number;
+}
+
+/**
+ * Fase 5 — impacto no caixa. Ver CLAUDE.md, seção "Desenho do motor": não
+ * cita prazo em dias para a fatia em risco porque esse prazo é
+ * indeterminado por definição (a dor relatada pelo contador na entrevista,
+ * docs/04) — só quantifica o valor em R$ de cada lado.
+ */
+export function recomendacaoCaixaParaAno(dados: DadosParaRecomendacaoCaixa): string {
+  const total = dados.valorProtegido + dados.valorEmRisco;
+
+  if (dados.valorEmRisco <= 0) {
+    return (
+      `Em ${dados.ano}, os R$ ${formatarReais(total)} de imposto da sua compra já estão totalmente ` +
+      `protegidos pelo split payment — o crédito fica disponível assim que você paga o fornecedor, ` +
+      `sem depender de mais ninguém recolher nada.`
+    );
+  }
+
+  if (dados.valorProtegido <= 0) {
+    return (
+      `Em ${dados.ano}, você paga seu fornecedor em ${dados.prazoPagamentoFornecedorDias} dias, mas os ` +
+      `R$ ${formatarReais(total)} de imposto dessa compra ainda dependem inteiramente do fornecedor ` +
+      `recolher — sem prazo garantido para você usar esse crédito.`
+    );
+  }
+
+  return (
+    `Em ${dados.ano}, você paga seu fornecedor em ${dados.prazoPagamentoFornecedorDias} dias. Desse ` +
+    `pagamento, R$ ${formatarReais(dados.valorProtegido)} de imposto já está protegido pelo split ` +
+    `payment (crédito disponível assim que você paga); R$ ${formatarReais(dados.valorEmRisco)} ainda ` +
+    `depende do fornecedor recolher, sem prazo garantido.`
+  );
+}

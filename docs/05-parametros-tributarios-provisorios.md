@@ -133,3 +133,72 @@ Não é necessário perguntar sobre "cenário de repasse" (integral/gradual/
 absorção) — isso é uma escolha de estratégia de preço do lojista, não uma
 regra tributária, e já foi decidido em código (ver CLAUDE.md, seção
 "Desenho do motor"). O contador só entra nos seis pontos acima.
+
+## Split payment — prazo de liberação do crédito (Fase 5, módulo de caixa)
+
+**Status: NÃO validado com o contador — mesma pendência do resto deste
+documento.** Pesquisa na web feita em 25/08/2026, para dar um número de
+partida ao módulo de "impacto no caixa" (docs/00, Fase 5) em vez de um
+palpite sem lastro. Ainda assim, os pontos abaixo têm questões em aberto
+segundo as próprias fontes — não tratar como definitivo.
+
+O que a pesquisa indica sobre o mecanismo (LC 214/2025, art. 47 e
+regulamentação do Comitê Gestor do IBS):
+
+- **O split payment resolve boa parte da dor original do Jonathas** ("meu
+  fornecedor pagou? vou conseguir meu crédito?") de um jeito que muda a
+  pergunta: no modelo pleno, o próprio meio de pagamento (Pix, cartão,
+  boleto) segrega e recolhe o IBS/CBS **no instante da liquidação
+  financeira da compra** — o valor do imposto nunca chega a entrar na
+  conta do fornecedor, vai direto para o Fisco. O crédito do comprador
+  passa a depender desse recolhimento automático, não de o fornecedor
+  "lembrar de pagar depois".
+- **Vendas parceladas**: a segregação/recolhimento acontece
+  proporcionalmente na liquidação de cada parcela — ou seja, o crédito do
+  comprador também se consolida parcela a parcela, acompanhando o
+  pagamento, não tudo de uma vez na compra.
+- **Pagamento a maior**: se o sistema reter mais imposto do que o devido,
+  o Fisco devolve a diferença ao fornecedor em até **3 dias úteis**.
+- **2026 é ano de teste**: alíquota simbólica de 1% (CBS 0,9% + IBS 0,1%),
+  sem cobrança real — bate com a tabela da seção anterior. Isso quer dizer
+  que, em 2026, o módulo de caixa não deveria mostrar nenhum efeito real
+  de retenção via split payment; o mecanismo pleno só entra em vigor a
+  partir de 2027 (CBS) e ganha força gradualmente com o IBS até 2033.
+- **Ainda há "questões em aberto"** segundo mais de uma fonte consultada —
+  cancelamento/devolução de vendas, papel exato do Comitê Gestor na
+  plataforma pública compartilhada com a Receita Federal, e o texto final
+  da regulamentação infralegal ainda não estão 100% fechados.
+
+Fontes consultadas:
+- [Split payment e o art. 47: por que a LC 214 de 2025 muda o seu crédito de IBS e CBS](https://www.reformatributaria.com/opiniao/split-payment-e-o-art-47-por-que-a-lc-214-de-2025-muda-o-seu-credito-de-ibs-e-cbs/)
+- [Split Payment em Vendas Parceladas: IBS e CBS](https://www.contabeis.com.br/artigos/78868/split-payment-em-vendas-parceladas-ibs-e-cbs)
+- [Split Payment na LC 214/2025: como será o recolhimento automático](https://site.avalarabrasil.com.br/reforma-tributaria/split-payment-lei-complementar-214-2025/)
+- [Split payment: a reforma tributária vai passar pelo caixa da sua empresa](https://blogs.correiobraziliense.com.br/jusbraziliense/2026/07/29/split-payment-a-reforma-tributaria-vai-passar-pelo-caixa-da-sua-empresa/)
+- [Split Payment na Reforma Tributária: impactos, limites e questões em aberto](https://www.contabeis.com.br/artigos/78327/split-payment-na-reforma-tributaria-impactos-limites-e-questoes-em-aberto/)
+
+### Checklist adicional para o contador (módulo de caixa)
+
+- [ ] Confirmar que, a partir de 2027, o crédito de CBS pode ser tratado
+      como **liberado no mesmo dia da liquidação do pagamento** (à vista),
+      já que o recolhimento é automático no instante do pagamento — ou se
+      existe algum hiato real de processamento a considerar.
+- [ ] Para vendas/compras parceladas, confirmar que o crédito deve ser
+      modelado parcela a parcela (proporcional a cada liquidação), e não
+      de uma vez na data da compra.
+- [ ] Confirmar se faz sentido o módulo assumir "sem retenção real via
+      split payment" para o ano de 2026 (fase de teste, alíquota
+      simbólica) e só mostrar o efeito a partir de 2027.
+- [ ] Perguntar se o contador já viu alguma orientação mais recente do
+      Comitê Gestor do IBS sobre prazo de liberação de crédito que
+      contradiga o que está documentado aqui — a regulamentação
+      infralegal ainda está em construção.
+
+**Pergunta para o contador (roteiro em linguagem simples), item 7:**
+
+7. **"Quando o split payment estiver valendo (a partir de 2027), o crédito
+   do IBS/CBS de uma compra à vista fica disponível no mesmo dia do
+   pagamento, ou existe algum prazo depois disso? E numa compra
+   parcelada, o crédito também vai entrando parcela a parcela, ou só no
+   fim?"** — essa resposta define o número de dias que o módulo de
+   impacto no caixa (Fase 5) usa para simular quando o crédito realmente
+   fica disponível para a empresa.
