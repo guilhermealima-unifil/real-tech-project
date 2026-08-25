@@ -65,7 +65,27 @@ desconto, ponta a ponta.
 - [x] Controle de desconto (`src/components/PainelRecomendacao.tsx`) — slider + campo numérico (%) para o desconto pedido pelo cliente; mostra, para todos os anos de uma vez, em quais o desconto ainda cabe dentro do piso e a partir de qual ano ele deixa de caber.
 - A fórmula de gradual/absorção é decisão de produto (não depende do contador); os *números* que ela usa (`ParametroTributario` 2026–2033) continuam pendentes de validação — docs/05 tem a seção "Perguntas para o contador".
 
-- [ ] `/api/simulacoes`, `/api/simulacoes/[id]`, `/api/empresas` (persistência) — bônus, não bloqueiam o Pitch. Fase 4 (regras, recomendação e deploy) e Fase 5 (caixa) — ver docs/00, seção 4.
+**Fase 4 (Documento 0, seção 4) está fechada.** Regras/recomendação e deploy
+— confirmado ao vivo em produção, não só localmente.
+
+- [x] Motor de alertas conectado às frases — já ficava pronto desde a Fase 2
+  (`mensagemRecomendacao` não depende de qual cenário gerou os números);
+  confirmado em produção para os três cenários via `/api/simular-cenarios`.
+- [x] Deploy funcionando na Vercel com banco de produção populado —
+  testado ao vivo contra `https://real-tech-project.vercel.app`:
+  `GET /api/ramos` retorna os 3 ramos; `POST /api/simular-cenarios` bate
+  Teste 1 (EletroLondrina 2026 = R$155,00) e Teste 2/4 (In-Pacto 2026 =
+  R$130,00, preço parado e margem caindo em 2027).
+- [x] `DATABASE_URL`, `POSTGRES_URL`, `PRISMA_DATABASE_URL` confirmadas em
+  Production (não só Development/Preview) via `vercel env ls`.
+- [x] Build roda `prisma generate` via `postinstall` — confirmado no
+  `package.json`, sem configuração extra necessária na Vercel.
+- Plano de rede para o Pitch: hotspot do celular como ponto de acesso
+  dedicado no dia, em vez de depender do wi-fi do evento. Decisão tomada em
+  conversa (25/08), não precisou de mudança de código — se isso mudar,
+  atualizar aqui.
+
+- [ ] `/api/simulacoes`, `/api/simulacoes/[id]`, `/api/empresas` (persistência) — bônus, não bloqueiam o Pitch. Fase 5 (caixa) — ver docs/00, seção 4.
 
 Nada da lista pendente deve ser construído sem alinhar antes, especialmente
 o contrato dos endpoints de persistência (Fase 4+) — e nenhum número da
