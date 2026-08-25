@@ -33,7 +33,32 @@ prática que se aplica daqui pra frente.
   divergência em `CLAUDE.md`, seção "Divergências do Documento 1", para
   ficar auditável.
 
+## Dados de negócio / leitura dos documentos
+
+- **Não confundir "preço calculado confirmado pela entrevistada" com "teto
+  de praça" (preço da concorrência).** No Teste 1 do Documento 0, "confirmado
+  por ela: 155 a 160" se refere à faixa do PRÓPRIO preço calculado da
+  EletroLondrina (porque despesa ~20%/margem ~35% são aproximados, "em torno
+  de"), não ao preço de um concorrente. Antes de usar um número de uma
+  entrevista para preencher um campo específico do schema, reler a frase
+  exata e confirmar a qual conceito ela se refere — os dois podem ter o
+  mesmo valor numérico por coincidência, mas são campos diferentes.
+- **`tetoPraca` (preço da concorrência) muitas vezes não tem fonte
+  numérica nas entrevistas, e isso é esperado, não uma lacuna a preencher
+  com estimativa.** O próprio Dossiê registra que esse dado "chega sozinho,
+  pelo cliente" no momento da venda — na prática é mais um campo que o
+  vendedor preenche ao vivo do que um dado pré-cadastrado. Deixar `null`
+  quando a entrevista não deu o número é o comportamento correto, não um
+  placeholder temporário.
+
 ## Tooling / infra
+
+- **`tsx prisma/seed.ts` não carrega `.env` sozinho** — precisa de
+  `import "dotenv/config"` no topo do arquivo (o `prisma.config.ts`/
+  `prisma7.config.ts` só é lido pelos comandos da CLI `prisma`, não quando
+  o script roda direto via `tsx`/`node`). Sem isso, o Prisma Client tenta
+  conectar em localhost e falha com `ECONNREFUSED`, o que pode parecer erro
+  de configuração do banco quando na verdade é só a env var vazia.
 
 - **`create-next-app` recusa rodar em diretório não-vazio**, mesmo com só
   um `README.md`. Solução: gerar o scaffold em um diretório separado
