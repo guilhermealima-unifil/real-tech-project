@@ -9,6 +9,8 @@ SESCAP 2026** (Contexto 01, Desafio 2), pitch em 27/08/2026.
 1. [docs/00-plano-implementacao.md](docs/00-plano-implementacao.md) — cronograma, fases, ordem de corte, testes de aceitação, riscos.
 2. [docs/01-passo-a-passo-vercel-prisma.md](docs/01-passo-a-passo-vercel-prisma.md) — como configurar Vercel, Prisma, PostgreSQL, seed.
 3. [docs/02-especificacao-completa.md](docs/02-especificacao-completa.md) — dados de entrada/saída, telas, endpoints, schema, validações, roteiro de apresentação.
+4. [docs/03-checkpoint2-apresentacao.md](docs/03-checkpoint2-apresentacao.md) — narrativa do pitch do 2º Checkpoint (problema, solução, modelo de negócio, diferenciais, evidências).
+5. [docs/04-dossie-consolidado.md](docs/04-dossie-consolidado.md) — dossiê completo da jornada: entrevistas na íntegra, pesquisa de concorrência, Canvas de Proposta de Valor, BMG, plano de implementação original. É o documento mais detalhado sobre o *porquê* de cada decisão de produto.
 
 Em caso de divergência entre este arquivo e os documentos acima, os
 documentos são a fonte de verdade — este arquivo só resume e aponta para
@@ -20,7 +22,7 @@ eles.
 - Tailwind CSS para estilo.
 - ESLint (config padrão do Next.js).
 - npm como gerenciador de pacotes.
-- Vitest para os testes de aceitação do motor de cálculo (ainda não instalado — ver "Estado atual").
+- Vitest para os testes de aceitação do motor de cálculo (instalado).
 - Backend via API routes da própria Vercel; Prisma ORM + PostgreSQL (Prisma Postgres via Vercel Marketplace) — ver Documento 1.
 
 ## Estado atual do repositório
@@ -32,7 +34,8 @@ eles.
 - [x] Schema aplicado no banco (`prisma db push`) e Prisma Client gerado.
 - [x] `DATABASE_URL` sincronizada localmente (`vercel env pull`), `.env` no `.gitignore`.
 - [x] `src/lib/prisma.ts` (singleton do Prisma Client com `@prisma/adapter-pg`).
-- [ ] `src/lib/motor.ts` (função pura `simular()`) e os 8 testes de aceitação (Vitest ainda não instalado).
+- [x] Vitest instalado.
+- [ ] `src/lib/motor.ts` (função pura `simular()`) e os 8 testes de aceitação — **o algoritmo exato de como a carga tributária por ano combina com as duas fórmulas de preço ainda não está fechado, ver seção abaixo**.
 - [ ] `prisma/seed.ts` com ramos, parâmetros 2026–2033 e os casos reais.
 - [ ] API routes (`/api/ramos`, `/api/parametros`, `/api/simular`, ...).
 - [ ] Telas (entrada, faixa viável, cenários, desconto, recomendação).
@@ -102,10 +105,9 @@ npx prisma format        # formata prisma/schema.prisma
 npx prisma db push       # aplica o schema no banco (sem migration versionada)
 npx prisma generate      # gera o Prisma Client em src/generated/prisma
 npx tsx prisma/seed.ts   # roda o seed (quando existir)
+npx vitest run           # roda os testes de aceitação do motor (quando existirem)
 ```
-
-(Comando de teste — `npm run test` ou `npx vitest run` — será adicionado
-aqui quando o Vitest for instalado, junto de `src/lib/motor.ts`.)
+```
 
 ## Skills deste projeto
 
@@ -115,6 +117,10 @@ aqui quando o Vitest for instalado, junto de `src/lib/motor.ts`.)
   seção 10; Documento 1, seção 14) e reporta o que falta.
 - `seed-db` — roda `prisma/seed.ts` e confirma que ramos, parâmetros
   2026–2033 e os casos reais foram carregados.
+- `licoes-aprendidas` — registro vivo de padrões de trabalho e erros já
+  cometidos neste projeto (tooling, infra, preferências do usuário).
+  Consultar antes de repetir uma decisão parecida; atualizar sempre que
+  algo novo surgir.
 - `prisma-cli`, `prisma-client-api`, `prisma-compute`,
   `prisma-database-setup`, `prisma-driver-adapter-implementation`,
   `prisma-mongodb-upgrade`, `prisma-postgres`, `prisma-postgres-setup`,
