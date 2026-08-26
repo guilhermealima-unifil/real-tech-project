@@ -16,11 +16,12 @@ texto de recomendação, não só para o dado numérico.
 
 ## 0. Fundação de tokens (Real Tech Identity — nova nesta etapa)
 
-Primeira etapa da evolução visual proposta na auditoria "Real Tech
-Identity" (design lead, pós-Sprint Day): fundação de tokens + shell global
-+ header. **Só isto foi implementado** — wizard, Resultado, análise de
-desconto e os gráficos continuam no padrão zinc puro descrito na seção 1
-abaixo, que segue válida para eles até a próxima etapa de migração.
+Evolução visual proposta na auditoria "Real Tech Identity" (design lead,
+pós-Sprint Day), em duas etapas: (1) fundação de tokens + shell global +
+header, (2) redesign visual do wizard sobre essa fundação. **As duas já
+foram implementadas.** Resultado, análise de desconto e os gráficos
+continuam no padrão zinc puro descrito na seção 1 abaixo, que segue válida
+só para eles até a próxima etapa de migração.
 
 ### Tokens
 
@@ -35,32 +36,37 @@ paleta zinc pura, que ainda exige o par claro/escuro manual em todo lugar).
 | Token | Claro | Escuro | Uso |
 |---|---|---|---|
 | `background` | `#F6F4F0` | `#0D0D0F` | fundo global (`body`) |
-| `surface` | `#FFFFFF` | `#17161A` | cards padrão (ainda não migrados) |
-| `surface-elevated` | `#FCFBF8` + `shadow-elevated` | `#1E1D22` + sombra mais forte | reservado para a próxima etapa (resumo executivo) |
-| `border` | `#E2DED4` | `#2C2A30` | bordas de card, header |
+| `surface` | `#FFFFFF` | `#17161A` | header, container do wizard |
+| `surface-elevated` | `#FCFBF8` + `shadow-elevated` | `#1E1D22` + sombra mais forte | resumo da Etapa 3 do wizard; Resultado ainda pendente |
+| `border` | `#E2DED4` | `#2C2A30` | bordas de card, header, campos do wizard |
 | `text-primary` | `#18171C` | `#F3F1EA` | texto principal |
 | `text-secondary` | `#58554D` | `#A8A49B` | subtítulos |
 | `muted` | `#8D897E` | `#6E6A62` | rótulos terciários, itens futuros do header |
 | `primary` | `#0F4C57` | `#4FB6AE` | destaque de marca — uso restrito (ver regra abaixo) |
-| `success` | `#1F8A5F` | `#3FBE83` | reservado; wizard/Resultado ainda usam `emerald-*` |
-| `warning` | `#A6690A` | `#E0A83D` | reservado; ainda `amber-*` |
-| `danger` | `#B02E26` | `#E2564C` | reservado; ainda `red-*` |
-| `focus` | = `primary` | = `primary` | `:focus-visible` global (novo) |
+| `success` | `#1F8A5F` | `#3FBE83` | etapa concluída no stepper do wizard; Resultado ainda usa `emerald-*` |
+| `warning` | `#A6690A` | `#E0A83D` | reservado; Resultado ainda usa `amber-*` |
+| `danger` | `#B02E26` | `#E2564C` | erros de validação do wizard; Resultado ainda usa `red-*` |
+| `focus` | = `primary` | = `primary` | `:focus-visible` global + foco por borda nos campos do wizard |
 
 **Regra de uso do `primary`:** é a única cor de marca do produto — reservada
-para "onde a decisão/atenção está" (hoje: item de navegação ativo e o botão
-"Nova simulação" do header usa tinta neutra, não `primary`, de propósito).
-Não é usada para status (isso continua sendo `success`/`warning`/`danger`,
-que hoje ainda vivem como classes Tailwind cruas nos componentes não
-migrados).
+para "onde a decisão/atenção está": item de navegação ativo e etapa atual
+do stepper no header/wizard, carta selecionada na escolha de fórmula, anel
+de foco dos campos. O botão "Nova simulação" (header e wizard) e os botões
+"Continuar"/"Simular faixa viável" usam tinta neutra (`text-primary`/
+`background`), não `primary`, de propósito — para o teal não se diluir
+antes do momento que mais importa (o preço recomendado, ainda pendente de
+migração). Não é usada para status — isso continua sendo
+`success`/`warning`/`danger`.
 
 ### Tipografia numérica
 
-Classe utilitária nova, `font-figures` (`@utility` em `globals.css`):
+Classe utilitária `font-figures` (`@utility` em `globals.css`):
 `font-family: var(--font-mono)` (Geist Mono, já carregado, antes sem uso) +
-`font-variant-numeric: tabular-nums`. Existe e está pronta, mas **ainda não
-é usada em nenhum componente** — aplicar em valores de R$/% fica para a
-etapa de migração do wizard/Resultado.
+`font-variant-numeric: tabular-nums`. Em uso no wizard: valor digitado e
+afixo (R$/%/dias) de todo `CampoNumerico`, alíquota sugerida do ramo,
+números do resumo da Etapa 3 e números dos círculos do stepper. Ainda não
+aplicada no Resultado (pendente, junto com o resto da migração daquela
+área).
 
 ### Shell global
 
@@ -86,9 +92,27 @@ sem controle nenhum. "Nova simulação" só aparece quando
 `ResultadoSimulacao`) — fica oculta durante o wizard para não convidar a
 descartar dados que o usuário ainda está preenchendo.
 
+### Wizard
+
+`src/components/simulacao/{SimulacaoWizard,IndicadorEtapas,EtapaOperacao,
+EtapaMargens,EtapaMercado}.tsx`, mais dois arquivos novos de apoio:
+`CampoNumerico.tsx` (rótulo + input com afixo R$/%/dias + texto de ajuda,
+usado por todo campo numérico) e `estiloCampo.ts` (3 constantes de classe
+— rótulo, select, texto de ajuda — para o select de ramo e o fieldset de
+fórmula nunca divergirem do `CampoNumerico`). Container do wizard:
+`surface`/`border`, `rounded-xl` (12px, acima do `rounded-lg` de 8px usado
+no resto do produto — reserva o raio maior para a superfície de maior
+destaque). `IndicadorEtapas`: `bg-success` para etapa concluída,
+`bg-primary` para a atual, `border-border` para futuras — continua um
+`<nav>`/`<ol>` não-interativo, nunca clicável. A pergunta sobre fórmula
+(Etapa 1) virou duas "cartas" clicáveis (`border-primary bg-primary/5`
+quando selecionada) em vez de radio nu. Casos reais (EletroLondrina/
+In-Pacto) rebaixados para `border-border text-muted` — antes tinham
+praticamente o mesmo peso do botão "Continuar".
+
 ---
 
-## 1. Cor (padrão anterior — ainda em uso no wizard, Resultado e gráficos)
+## 1. Cor (padrão anterior — ainda em uso no Resultado e nos gráficos)
 
 Paleta neutra em **zinc** (Tailwind) + 3 cores semânticas. Nenhuma cor de
 marca própria foi definida ainda — o produto usa só a paleta padrão do
@@ -254,10 +278,11 @@ estilo):
   dependência externa (`CLAUDE.md`).
 - ~~Não existe token de cor de marca própria~~ — **resolvido na etapa
   "Real Tech Identity — fundação"** (seção 0): 12 tokens claro/escuro +
-  shell + header. O que falta agora não é o token, é a migração — wizard,
-  Resultado, análise de desconto e os gráficos continuam no zinc/emerald/
-  red/amber cru descrito na seção 1, por decisão explícita de escopo dessa
-  etapa (fundação primeiro, migração de componente depois).
+  shell + header, com o wizard já migrado sobre essa fundação. O que falta
+  agora é só a segunda metade da migração — Resultado, análise de desconto
+  e os gráficos continuam no zinc/emerald/red/amber cru descrito na
+  seção 1, por decisão explícita de escopo (fundação + wizard primeiro,
+  Resultado depois).
 - Gráficos (`FaixaViavelChart`, `ImpactoCaixaChart`) continuam com hex fixo
-  dentro do `<svg>`, ilegível no dark mode — não tratado nesta etapa
-  (fora de escopo, ver seção 0); é o próximo item de maior impacto.
+  dentro do `<svg>`, ilegível no dark mode — não tratado ainda (fora de
+  escopo das duas etapas da seção 0); é o próximo item de maior impacto.
