@@ -80,9 +80,35 @@ body {
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
 }
 
-/* Foco visível consistente em qualquer elemento interativo novo do shell — componentes que já têm tratamento de foco próprio (ex.: os gráficos SVG) continuam intocados. */
-:focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: 2px;
-  border-radius: 2px;
+/**
+ * @layer base: sem isto, estas regras ficam FORA de qualquer layer do
+ * Tailwind — e no CSS Cascade Layers, uma regra sem layer sempre vence
+ * qualquer regra dentro de uma layer (aqui, @layer utilities), não importa
+ * a ordem ou a especificidade. Era exatamente esse o bug: `:focus-visible`
+ * "global" continuava desenhando contorno em cima de QUALQUER elemento com
+ * `outline-none`, mesmo quando o componente (ex.: CampoNumerico) já tinha
+ * seu próprio contorno de foco no wrapper — resultava em dois contornos
+ * desalinhados por cima um do outro. Dentro de @layer base, uma utility
+ * como `outline-none` (em @layer utilities, que vem depois) volta a
+ * conseguir sobrescrever isso normalmente.
+ */
+@layer base {
+  /* Foco visível padrão para qualquer elemento interativo que não define
+     seu próprio tratamento de foco — componentes com contorno de foco
+     próprio (CampoNumerico, os `<g>` dos gráficos SVG) usam `outline-none`
+     para assumir esse papel sozinhos. */
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  /* Esconde as setas nativas de incremento/decremento de <input
+     type="number"> em todo o app. Chrome/Safari/Edge já são resolvidos
+     por `appearance-none` direto no <input> (CampoNumerico.tsx); só o
+     Firefox precisa deste valor específico, sem utility equivalente no
+     Tailwind. */
+  input[type="number"] {
+    -moz-appearance: textfield;
+  }
 }

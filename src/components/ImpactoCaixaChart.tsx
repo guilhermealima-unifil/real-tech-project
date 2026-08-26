@@ -18,10 +18,11 @@ const PAD_BAIXO = 36;
 const LARGURA_BARRA = 36;
 
 /**
- * Barras empilhadas: R$ protegido pelo split payment (crédito ~imediato) em
- * baixo, R$ ainda em risco (regime antigo, prazo indeterminado) em cima —
- * ver CLAUDE.md, seção "Desenho do motor" (Fase 5), para o porquê de não
- * haver eixo em dias.
+ * Barras empilhadas via tokens semânticos — `success` (protegido pelo
+ * split payment) e `warning` (ainda depende do fornecedor recolher).
+ * Verde/âmbar aqui têm significado de negócio real (não é "onde está o
+ * foco", como o `primary` da marca) — por isso continuam `success`/
+ * `warning`, nunca `primary`, mesmo migrando para tokens.
  */
 export function ImpactoCaixaChart({ resultados, anoSelecionado, onSelecionarAno }: ImpactoCaixaChartProps) {
   const anos = resultados.map((r) => r.ano);
@@ -41,7 +42,7 @@ export function ImpactoCaixaChart({ resultados, anoSelecionado, onSelecionarAno 
   return (
     <svg
       viewBox={`0 0 ${LARGURA} ${ALTURA}`}
-      className="w-full h-auto"
+      className="h-auto w-full"
       role="img"
       aria-label="Impacto no caixa: valor protegido pelo split payment vs. em risco, ano a ano"
     >
@@ -86,7 +87,7 @@ export function ImpactoCaixaChart({ resultados, anoSelecionado, onSelecionarAno 
               y={baseY - alturaProtegido}
               width={LARGURA_BARRA}
               height={alturaProtegido}
-              fill="#059669"
+              className="fill-success"
               opacity={selecionado ? 1 : 0.65}
             />
             <rect
@@ -94,7 +95,7 @@ export function ImpactoCaixaChart({ resultados, anoSelecionado, onSelecionarAno 
               y={baseY - alturaProtegido - alturaRisco}
               width={LARGURA_BARRA}
               height={alturaRisco}
-              fill="#d97706"
+              className="fill-warning"
               opacity={selecionado ? 1 : 0.65}
             />
             {selecionado && (
@@ -104,7 +105,7 @@ export function ImpactoCaixaChart({ resultados, anoSelecionado, onSelecionarAno 
                 width={LARGURA_BARRA + 4}
                 height={alturaProtegido + alturaRisco + 4}
                 fill="none"
-                className="stroke-zinc-900 dark:stroke-zinc-50"
+                className="stroke-text-primary"
                 strokeWidth={1.5}
               />
             )}
@@ -114,7 +115,7 @@ export function ImpactoCaixaChart({ resultados, anoSelecionado, onSelecionarAno 
               textAnchor="middle"
               fontSize={15}
               fontWeight={selecionado ? 700 : 400}
-              className={selecionado ? "fill-zinc-900 dark:fill-zinc-50" : "fill-zinc-500 dark:fill-zinc-400"}
+              className={"font-figures " + (selecionado ? "fill-text-primary" : "fill-text-secondary")}
             >
               {r.ano}
             </text>
@@ -127,7 +128,7 @@ export function ImpactoCaixaChart({ resultados, anoSelecionado, onSelecionarAno 
         y={PAD_TOPO + 4}
         textAnchor="end"
         fontSize={13}
-        className="fill-zinc-500 dark:fill-zinc-400"
+        className="font-figures fill-text-secondary"
       >
         {formatarReais(yMax)}
       </text>
@@ -136,7 +137,7 @@ export function ImpactoCaixaChart({ resultados, anoSelecionado, onSelecionarAno 
         y={ALTURA - PAD_BAIXO}
         textAnchor="end"
         fontSize={13}
-        className="fill-zinc-500 dark:fill-zinc-400"
+        className="font-figures fill-text-secondary"
       >
         0
       </text>

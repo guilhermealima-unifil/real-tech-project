@@ -24,6 +24,12 @@ interface CampoNumericoProps {
  * afixo e no valor digitado — o número lê como dado financeiro, não texto
  * comum. Clicar em qualquer parte do rótulo (inclusive o afixo) foca o
  * input, por estarem todos dentro do mesmo `<label>`.
+ *
+ * O contorno de foco pertence só ao wrapper (`focus-within:*`); o
+ * `<input>` usa `outline-none` + `appearance-none` para nunca desenhar um
+ * segundo contorno/aparência nativa por cima do dele — ver
+ * `globals.css` (`:focus-visible` em `@layer base`) para o porquê disso
+ * só funciona com a regra global dentro de uma layer.
  */
 export function CampoNumerico({
   label,
@@ -44,7 +50,9 @@ export function CampoNumerico({
       <label className="flex flex-col gap-1.5">
         <span className={srOnlyLabel ? "sr-only" : ROTULO_CAMPO}>{label}</span>
         <span className="flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3.5 transition-colors focus-within:border-primary focus-within:ring-1 focus-within:ring-primary">
-          {prefixo && <span className="font-figures shrink-0 text-sm text-muted">{prefixo}</span>}
+          {prefixo && (
+            <span className="font-figures shrink-0 text-sm text-text-secondary">{prefixo}</span>
+          )}
           <input
             type="number"
             min={min}
@@ -54,9 +62,11 @@ export function CampoNumerico({
             placeholder={placeholder}
             value={value}
             onChange={(e) => onChange(e.target.value)}
-            className="font-figures w-full min-w-0 bg-transparent py-2.5 text-sm text-text-primary outline-none placeholder:font-sans placeholder:text-muted"
+            className="font-figures w-full min-w-0 appearance-none bg-transparent py-2.5 text-sm text-text-primary outline-none placeholder:font-sans placeholder:text-muted"
           />
-          {sufixo && <span className="font-figures shrink-0 text-sm text-muted">{sufixo}</span>}
+          {sufixo && (
+            <span className="font-figures shrink-0 text-sm text-text-secondary">{sufixo}</span>
+          )}
         </span>
       </label>
       {helper && <p className={AJUDA_CAMPO}>{helper}</p>}

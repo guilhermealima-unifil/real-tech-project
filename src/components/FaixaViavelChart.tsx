@@ -17,9 +17,21 @@ const PAD_TOPO = 24;
 const PAD_BAIXO = 36;
 
 /**
+ * "Painel de instrumento de precisão" (Real Tech Identity): cores vêm só
+ * dos tokens (`fill-*`/`stroke-*` gerados por `@theme inline` a partir das
+ * mesmas variáveis de `globals.css` — nenhuma paleta duplicada aqui, sem
+ * hex fixo). Hierarquia por peso, não só cor: preço (a informação
+ * principal) é a linha mais grossa e no token de maior contraste
+ * (`text-primary`, tinta); piso/teto são mais finos e diferenciados entre
+ * si por traço (piso sólido, teto tracejado) além da cor — nunca dependem
+ * só de cor. Teto usa `warning` (decisão comercial, não estrutural — mesma
+ * leitura do status "acima do teto" em ResumoResultado), piso usa
+ * `success` (borda da zona viável). Grid discreto (`border` com opacidade
+ * reduzida) para nunca competir com os dados.
+ *
  * Escala automática pela faixa (piso/teto/preço), não a partir de zero —
- * a faixa costuma ser estreita (docs/02, seção 3, item 2) e uma escala
- * fixa a partir de zero a esconderia.
+ * a faixa costuma ser estreita e uma escala fixa a partir de zero a
+ * esconderia.
  */
 export function FaixaViavelChart({ resultados, anoSelecionado, onSelecionarAno }: FaixaViavelChartProps) {
   const anos = resultados.map((r) => r.ano);
@@ -56,22 +68,24 @@ export function FaixaViavelChart({ resultados, anoSelecionado, onSelecionarAno }
   return (
     <svg
       viewBox={`0 0 ${LARGURA} ${ALTURA}`}
-      className="w-full h-auto"
+      className="h-auto w-full"
       role="img"
       aria-label="Faixa viável de preço ano a ano"
     >
-      <polygon points={areaFaixa} fill="rgb(16 185 129 / 0.12)" />
+      {/* Área da faixa — "onde o preço pode viver", discreta de propósito. */}
+      <polygon points={areaFaixa} className="fill-success/10" />
 
-      <polyline points={pontosPiso} fill="none" stroke="#059669" strokeWidth={2} />
+      <polyline points={pontosPiso} fill="none" strokeWidth={1.5} className="stroke-success" />
       {temTeto && (
-        <polyline points={pontosTopo} fill="none" stroke="#b91c1c" strokeWidth={2} strokeDasharray="6 4" />
+        <polyline
+          points={pontosTopo}
+          fill="none"
+          strokeWidth={1.5}
+          strokeDasharray="6 4"
+          className="stroke-warning"
+        />
       )}
-      <polyline
-        points={pontosPreco}
-        fill="none"
-        strokeWidth={2.5}
-        className="stroke-zinc-900 dark:stroke-zinc-50"
-      />
+      <polyline points={pontosPreco} fill="none" strokeWidth={2.5} className="stroke-text-primary" />
 
       {resultados.map((r) => {
         const cx = x(r.ano);
@@ -112,7 +126,7 @@ export function FaixaViavelChart({ resultados, anoSelecionado, onSelecionarAno }
               y1={PAD_TOPO}
               x2={cx}
               y2={ALTURA - PAD_BAIXO}
-              className="stroke-zinc-200 dark:stroke-zinc-800"
+              className="stroke-border/70"
               strokeWidth={1}
             />
             <circle
@@ -120,8 +134,7 @@ export function FaixaViavelChart({ resultados, anoSelecionado, onSelecionarAno }
               cy={cy}
               r={selecionado ? 7 : 5}
               className={
-                (r.alertaDisparado ? "fill-red-600" : "fill-zinc-900 dark:fill-zinc-50") +
-                " stroke-white dark:stroke-zinc-950"
+                (r.alertaDisparado ? "fill-danger" : "fill-text-primary") + " stroke-surface"
               }
               strokeWidth={selecionado ? 2 : 1}
             />
@@ -131,7 +144,7 @@ export function FaixaViavelChart({ resultados, anoSelecionado, onSelecionarAno }
               textAnchor="middle"
               fontSize={15}
               fontWeight={selecionado ? 700 : 400}
-              className={selecionado ? "fill-zinc-900 dark:fill-zinc-50" : "fill-zinc-500 dark:fill-zinc-400"}
+              className={"font-figures " + (selecionado ? "fill-text-primary" : "fill-text-secondary")}
             >
               {r.ano}
             </text>
@@ -144,7 +157,7 @@ export function FaixaViavelChart({ resultados, anoSelecionado, onSelecionarAno }
         y={y(yDomainMax) + 4}
         textAnchor="end"
         fontSize={13}
-        className="fill-zinc-500 dark:fill-zinc-400"
+        className="font-figures fill-text-secondary"
       >
         {formatarReais(yDomainMax)}
       </text>
@@ -153,7 +166,7 @@ export function FaixaViavelChart({ resultados, anoSelecionado, onSelecionarAno }
         y={y(yDomainMin) + 4}
         textAnchor="end"
         fontSize={13}
-        className="fill-zinc-500 dark:fill-zinc-400"
+        className="font-figures fill-text-secondary"
       >
         {formatarReais(yDomainMin)}
       </text>
