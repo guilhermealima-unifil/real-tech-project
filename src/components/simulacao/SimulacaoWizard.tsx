@@ -3,6 +3,7 @@
 import { useSimulation } from "@/state/SimulationProvider";
 import { errosDaEtapa, numOrUndefined } from "@/state/validacaoEtapas";
 import type { EtapaWizard, SimulationFormState } from "@/state/simulacaoReducer";
+import { decidirAcaoEnter } from "./decisaoEnter";
 import { IndicadorEtapas } from "./IndicadorEtapas";
 import { EtapaOperacao } from "./EtapaOperacao";
 import { EtapaMargens } from "./EtapaMargens";
@@ -111,9 +112,24 @@ export function SimulacaoWizard() {
 
   const eUltimaEtapa = etapa === "mercado";
 
+  // Causa raiz do bug de pular a Etapa Mercado: o wizard inteiro é um único
+  // <form>, e o navegador submete um <form> ao apertar Enter num campo
+  // mesmo sem nenhum <button type="submit"> presente no DOM naquele
+  // momento (só existe na última etapa). Fora da última etapa, Enter deve
+  // significar o mesmo que o botão "Continuar" visível — nunca "Simular".
+  function aoTeclarNoFormulario(evento: React.KeyboardEvent<HTMLFormElement>) {
+    if (evento.key !== "Enter") return;
+    const alvo = evento.target as HTMLElement;
+    const acao = decidirAcaoEnter({ eUltimaEtapa, tagNameAlvo: alvo.tagName });
+    if (acao === "ignorar" || acao === "submeter-nativo") return;
+    evento.preventDefault();
+    aoContinuar();
+  }
+
   return (
     <form
       onSubmit={aoSubmeter}
+      onKeyDown={aoTeclarNoFormulario}
       className="rounded-xl border border-border bg-surface p-6 sm:p-8"
     >
       {etapa === "operacao" && (
