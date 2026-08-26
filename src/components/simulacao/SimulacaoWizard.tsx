@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useSimulation } from "@/state/SimulationProvider";
 import { errosDaEtapa, numOrUndefined } from "@/state/validacaoEtapas";
 import type { EtapaWizard, SimulationFormState } from "@/state/simulacaoReducer";
@@ -73,6 +74,20 @@ export function SimulacaoWizard() {
   const indiceAtual = ORDEM_ETAPAS.indexOf(etapa);
   const eUltimaEtapa = etapa === "mercado";
 
+  // Causa raiz confirmada: "Continuar" e "Simular faixa viável" ocupam a
+  // mesma posição na tela. Ao chegar no Mercado vindo de um clique em
+  // "Continuar", um segundo clique do mesmo gesto/ritmo (comum em quem
+  // preenche rápido) pousa exatamente onde "Simular" acabou de aparecer,
+  // submetendo sem o usuário ter de fato decidido isso — confirmado ao
+  // vivo: a Etapa Mercado chega a aparecer, só não dá tempo de ser vista.
+  // `prontoParaSubmeter` mantém "Simular" desabilitado por uma janela
+  // curta o bastante para filtrar esse clique residual, mas imperceptível
+  // para quem realmente parou e olhou a tela antes de clicar. Armada
+  // direto em `aoContinuar` (único lugar que leva a "mercado" — ver
+  // abaixo), não via `useEffect`: evita disparar um setState síncrono
+  // dentro de efeito, que causaria uma renderização em cascata à toa.
+  const [prontoParaSubmeter, setProntoParaSubmeter] = useState(false);
+
   function errosDaEtapaAtual(): string[] {
     if (etapa === "margens") {
       const erros = errosDaEtapa("margens", form);
@@ -91,7 +106,16 @@ export function SimulacaoWizard() {
       return;
     }
     const proximaEtapa = ORDEM_ETAPAS[indiceAtual + 1];
-    if (proximaEtapa) irParaEtapa(proximaEtapa);
+    if (!proximaEtapa) return;
+    irParaEtapa(proximaEtapa);
+    if (proximaEtapa === "mercado") {
+      // Rearma a janela de segurança toda vez que se entra no Mercado —
+      // inclusive ao voltar e avançar de novo — porque este é o único
+      // caminho que leva até lá (ver aoVoltar/irParaEtapa acima: nenhum
+      // outro lugar navega para "mercado").
+      setProntoParaSubmeter(false);
+      setTimeout(() => setProntoParaSubmeter(true), 450);
+    }
   }
 
   function aoVoltar() {
@@ -108,14 +132,14 @@ export function SimulacaoWizard() {
 
   async function aoSubmeter(evento: React.FormEvent) {
     evento.preventDefault();
-    // Guarda de verdade contra pular a Etapa Mercado: o handler de Enter
-    // (abaixo) cobre o gatilho mais comum de submit espúrio, mas o próprio
-    // `onSubmit` do <form> pode disparar por qualquer outro motivo (ex.: um
-    // clique que caia sobre o botão de submit no instante em que ele troca
-    // de "Continuar" para "Simular"). `aoSubmeter` não deve confiar que
-    // "onSubmit disparou" implica "o usuário está no Mercado" — só
-    // `executarSimulacao()` quando isso for realmente verdade.
-    if (!eUltimaEtapa) return;
+    // Duas guardas independentes contra pular a Etapa Mercado:
+    // `eUltimaEtapa` garante que só se submete estando de fato no Mercado;
+    // `prontoParaSubmeter` garante que o botão teve tempo de ser
+    // percebido antes de aceitar clique (ver janela de segurança acima).
+    // `aoSubmeter` não deve confiar que "onSubmit disparou" implica "o
+    // usuário decidiu simular" — só chama `executarSimulacao()` quando
+    // isso for realmente verdade.
+    if (!eUltimaEtapa || !prontoParaSubmeter) return;
     await executarSimulacao();
   }
 
@@ -209,7 +233,7 @@ export function SimulacaoWizard() {
         {eUltimaEtapa ? (
           <button
             type="submit"
-            disabled={ui.isSimulating || catalogo.parametros.length === 0}
+            disabled={ui.isSimulating || catalogo.parametros.length === 0 || !prontoParaSubmeter}
             className="rounded-lg bg-text-primary px-6 py-2.5 text-sm font-medium text-background transition-opacity hover:opacity-90 disabled:opacity-50"
           >
             {ui.isSimulating ? "Calculando…" : "Simular faixa viável"}
