@@ -101,3 +101,55 @@ export function recomendacaoCaixaParaAno(dados: DadosParaRecomendacaoCaixa): str
     `depende do fornecedor recolher, sem prazo garantido.`
   );
 }
+
+export interface DadosStatusPreco {
+  ano: number;
+  /** Já classificado por src/lib/analiseResultado.ts — esta função só formata o texto, não decide a categoria. */
+  status: "abaixo_piso" | "dentro_da_faixa" | "acima_teto";
+  preco: number;
+  piso: number;
+  teto: number | null;
+}
+
+/**
+ * Resumo executivo do Resultado (evolução pós-wizard) — mesma convenção de
+ * `recomendacaoParaAno`: recebe dados já calculados, só decide a frase.
+ */
+export function mensagemStatusPreco(dados: DadosStatusPreco): string {
+  if (dados.status === "abaixo_piso") {
+    return (
+      `Seu preço atual está R$ ${formatarReais(dados.piso - dados.preco)} abaixo do piso ` +
+      `necessário para ${dados.ano}.`
+    );
+  }
+
+  if (dados.status === "acima_teto") {
+    return (
+      `Seu preço atual está R$ ${formatarReais(dados.preco - (dados.teto as number))} acima do que ` +
+      `a praça pratica em ${dados.ano} — isso é uma decisão comercial, não um problema estrutural.`
+    );
+  }
+
+  return `Seu preço atual está dentro da faixa viável para ${dados.ano}.`;
+}
+
+export interface DadosAnaliseDesconto {
+  /** `valorDescontoPedidoReais - valorDescontoMaximoReais`, de src/lib/analiseResultado.ts. Positivo = ultrapassa. */
+  excedenteReais: number;
+}
+
+/** Mesma convenção das outras: recebe o número já calculado, só formata a frase. */
+export function mensagemAnaliseDesconto(dados: DadosAnaliseDesconto): string {
+  if (dados.excedenteReais > 0) {
+    return `Esse desconto ultrapassa o limite seguro em R$ ${formatarReais(dados.excedenteReais)}.`;
+  }
+
+  if (dados.excedenteReais < 0) {
+    return (
+      `Esse desconto cabe dentro do limite seguro, com folga de ` +
+      `R$ ${formatarReais(-dados.excedenteReais)}.`
+    );
+  }
+
+  return `Esse desconto usa exatamente o limite seguro, no piso da sua margem mínima.`;
+}
