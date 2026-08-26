@@ -53,6 +53,12 @@ describe("classificarStatusPreco", () => {
   it("preço igual ao piso conta como dentro da faixa, não abaixo", () => {
     expect(classificarStatusPreco(100, 100, 200)).toBe("dentro_da_faixa");
   });
+  it("faixa inviável (piso > teto) tem status próprio, não cai em acima_teto", () => {
+    expect(classificarStatusPreco(250, 220, 200)).toBe("faixa_inviavel");
+  });
+  it("faixa inviável tem prioridade mesmo se o preço também estiver abaixo do piso", () => {
+    expect(classificarStatusPreco(150, 220, 200)).toBe("faixa_inviavel");
+  });
 });
 
 describe("calcularPrecoRecomendado", () => {

@@ -105,7 +105,7 @@ export function recomendacaoCaixaParaAno(dados: DadosParaRecomendacaoCaixa): str
 export interface DadosStatusPreco {
   ano: number;
   /** Já classificado por src/lib/analiseResultado.ts — esta função só formata o texto, não decide a categoria. */
-  status: "abaixo_piso" | "dentro_da_faixa" | "acima_teto";
+  status: "abaixo_piso" | "dentro_da_faixa" | "acima_teto" | "faixa_inviavel";
   preco: number;
   piso: number;
   teto: number | null;
@@ -116,6 +116,14 @@ export interface DadosStatusPreco {
  * `recomendacaoParaAno`: recebe dados já calculados, só decide a frase.
  */
 export function mensagemStatusPreco(dados: DadosStatusPreco): string {
+  if (dados.status === "faixa_inviavel") {
+    return (
+      `Mesmo no piso de R$ ${formatarReais(dados.piso)}, o preço fica acima do que a praça pratica ` +
+      `(até R$ ${formatarReais(dados.teto as number)}) em ${dados.ano} — não há preço que atenda a ` +
+      `margem mínima e a praça ao mesmo tempo. Vale rever custo, despesa ou margem.`
+    );
+  }
+
   if (dados.status === "abaixo_piso") {
     return (
       `Seu preço atual está R$ ${formatarReais(dados.piso - dados.preco)} abaixo do piso ` +
@@ -152,4 +160,38 @@ export function mensagemAnaliseDesconto(dados: DadosAnaliseDesconto): string {
   }
 
   return `Esse desconto usa exatamente o limite seguro, no piso da sua margem mínima.`;
+}
+
+export interface DadosPrecoRecomendado {
+  precoAtual: number;
+  /** `null` quando não existe preço recomendado (faixa inviável — ver src/lib/analiseResultado.ts). */
+  precoRecomendado: number | null;
+  /** `precoRecomendado - precoAtual`, de src/lib/analiseResultado.ts. */
+  diferencaValor: number | null;
+  diferencaPercentual: number | null;
+}
+
+/**
+ * A frase que acompanha o preço recomendado — decide entre três formas,
+ * pra nunca repetir o mesmo número duas vezes sem dizer nada novo:
+ * sem recomendação, preço já no valor certo, ou reajuste necessário.
+ */
+export function mensagemPrecoRecomendado(dados: DadosPrecoRecomendado): string {
+  if (dados.precoRecomendado === null) {
+    return "Não existe preço que atenda sua margem mínima e o teto da praça ao mesmo tempo.";
+  }
+
+  if (dados.diferencaValor === 0) {
+    return `Seu preço atual (R$ ${formatarReais(dados.precoAtual)}) já está no valor recomendado.`;
+  }
+
+  const sinal = dados.diferencaValor !== null && dados.diferencaValor > 0 ? "+" : "";
+  const percentual =
+    dados.diferencaPercentual !== null
+      ? ` (${sinal}${formatarPct(dados.diferencaPercentual)}%)`
+      : "";
+
+  return (
+    `Reajuste recomendado: ${sinal}R$ ${formatarReais(dados.diferencaValor as number)}${percentual}.`
+  );
 }

@@ -9,14 +9,21 @@
 
 import type { ResultadoAno } from "./motor";
 
-export type StatusPreco = "abaixo_piso" | "dentro_da_faixa" | "acima_teto";
+export type StatusPreco = "abaixo_piso" | "dentro_da_faixa" | "acima_teto" | "faixa_inviavel";
 
-/** Classifica o preço analisado usando só `preco`/`piso`/`teto`, já devolvidos por simular(). */
+/**
+ * Classifica o preço analisado usando só `preco`/`piso`/`teto`, já
+ * devolvidos por simular(). `faixa_inviavel` (piso > teto) é checado
+ * primeiro e é mutuamente exclusivo dos outros — mesma condição que
+ * `calcularPrecoRecomendado` já usa para não recomendar preço nenhum;
+ * antes essa classificação caía sem distinção dentro de `acima_teto`.
+ */
 export function classificarStatusPreco(
   preco: number,
   piso: number,
   teto: number | null,
 ): StatusPreco {
+  if (teto !== null && piso > teto) return "faixa_inviavel";
   if (preco < piso) return "abaixo_piso";
   if (teto !== null && preco > teto) return "acima_teto";
   return "dentro_da_faixa";

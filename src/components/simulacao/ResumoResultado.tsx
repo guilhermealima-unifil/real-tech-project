@@ -1,40 +1,36 @@
 import type { ResultadoAno } from "@/lib/motor";
-import { formatarPct, formatarReais, mensagemStatusPreco } from "@/lib/frases";
+import {
+  formatarPct,
+  formatarReais,
+  mensagemPrecoRecomendado,
+  mensagemStatusPreco,
+} from "@/lib/frases";
 import {
   calcularDiferencaPreco,
   calcularPrecoRecomendado,
   classificarStatusPreco,
+  type StatusPreco,
 } from "@/lib/analiseResultado";
 
 interface ResumoResultadoProps {
   resultado: ResultadoAno;
 }
 
-const ROTULO_STATUS: Record<
-  ReturnType<typeof classificarStatusPreco>,
-  { rotulo: string; classe: string }
-> = {
-  abaixo_piso: {
-    rotulo: "Abaixo do piso",
-    classe: "bg-red-600/15 text-red-800 dark:text-red-300",
-  },
-  dentro_da_faixa: {
-    rotulo: "Dentro da faixa viável",
-    classe: "bg-emerald-600/15 text-emerald-800 dark:text-emerald-300",
-  },
-  acima_teto: {
-    rotulo: "Acima do teto da praça",
-    classe: "bg-amber-600/15 text-amber-800 dark:text-amber-300",
-  },
+const ROTULO_STATUS: Record<StatusPreco, { rotulo: string; classe: string }> = {
+  abaixo_piso: { rotulo: "Abaixo do piso", classe: "bg-danger/10 text-danger" },
+  dentro_da_faixa: { rotulo: "Dentro da faixa viável", classe: "bg-success/10 text-success" },
+  acima_teto: { rotulo: "Acima do teto da praça", classe: "bg-warning/10 text-warning" },
+  faixa_inviavel: { rotulo: "Faixa inviável", classe: "bg-danger/10 text-danger" },
 };
 
 /**
- * Resumo executivo — topo da área de Resultado. Responde direto "quanto eu
- * deveria cobrar", combinando valores que `simular()` já devolve
- * (preco/piso/teto/descontoMaximoPct) com derivações puramente matemáticas
- * de apresentação (src/lib/analiseResultado.ts). Nenhuma regra tributária
- * nova — ver PENDÊNCIA no relatório da etapa sobre o preço recomendado não
- * fazer cap automático no teto da praça.
+ * Bloco principal do Resultado — responde "quanto eu devo cobrar" antes de
+ * qualquer outra coisa na tela. O preço recomendado é o único elemento em
+ * destaque de verdade (tamanho, `surface-elevated`); status, preço
+ * analisado, diferença e desconto disponível são deliberadamente
+ * secundários — não um grid de 4 números do mesmo peso. Nenhuma regra
+ * tributária nova: só combina o que `simular()` e
+ * src/lib/analiseResultado.ts já calculam.
  */
 export function ResumoResultado({ resultado }: ResumoResultadoProps) {
   const status = classificarStatusPreco(resultado.preco, resultado.piso, resultado.teto);
@@ -44,60 +40,32 @@ export function ResumoResultado({ resultado }: ResumoResultadoProps) {
   const valorDescontoMaximoReais = Math.max(resultado.preco - resultado.piso, 0);
 
   return (
-    <section className="rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-950">
-      <p className="text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-        Resumo executivo · {resultado.ano}
+    <section className="shadow-elevated rounded-xl bg-surface-elevated p-6 sm:p-10">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-xs font-medium uppercase tracking-wide text-primary">
+          Preço recomendado · {resultado.ano}
+        </p>
+        <span
+          className={`inline-block shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${ROTULO_STATUS[status].classe}`}
+        >
+          {ROTULO_STATUS[status].rotulo}
+        </span>
+      </div>
+
+      <p className="font-figures mt-3 text-5xl font-semibold tracking-tight text-text-primary sm:text-6xl">
+        {precoRecomendado !== null ? `R$ ${formatarReais(precoRecomendado)}` : "Sem preço viável"}
       </p>
 
-      <dl className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <div>
-          <dt className="text-xs text-zinc-500 dark:text-zinc-400">Preço analisado</dt>
-          <dd className="text-xl font-semibold text-zinc-900 dark:text-zinc-50">
-            R$ {formatarReais(resultado.preco)}
-          </dd>
-        </div>
+      <p className="mt-3 max-w-prose text-sm font-medium text-text-primary sm:text-base">
+        {mensagemPrecoRecomendado({
+          precoAtual: resultado.preco,
+          precoRecomendado,
+          diferencaValor: diferenca?.valor ?? null,
+          diferencaPercentual: diferenca?.percentual ?? null,
+        })}
+      </p>
 
-        <div>
-          <dt className="text-xs text-zinc-500 dark:text-zinc-400">Status</dt>
-          <dd className="mt-1">
-            <span
-              className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${ROTULO_STATUS[status].classe}`}
-            >
-              {ROTULO_STATUS[status].rotulo}
-            </span>
-          </dd>
-        </div>
-
-        <div>
-          <dt className="text-xs text-zinc-500 dark:text-zinc-400">Preço recomendado</dt>
-          <dd className="text-xl font-semibold text-zinc-900 dark:text-zinc-50">
-            {precoRecomendado !== null ? `R$ ${formatarReais(precoRecomendado)}` : "—"}
-          </dd>
-        </div>
-
-        <div>
-          <dt className="text-xs text-zinc-500 dark:text-zinc-400">Diferença</dt>
-          <dd
-            className={
-              "text-xl font-semibold " +
-              (diferenca && diferenca.valor > 0
-                ? "text-emerald-700 dark:text-emerald-400"
-                : diferenca && diferenca.valor < 0
-                  ? "text-red-700 dark:text-red-400"
-                  : "text-zinc-900 dark:text-zinc-50")
-            }
-          >
-            {diferenca
-              ? `${diferenca.valor >= 0 ? "+" : ""}R$ ${formatarReais(diferenca.valor)}` +
-                (diferenca.percentual !== null
-                  ? ` (${diferenca.percentual >= 0 ? "+" : ""}${formatarPct(diferenca.percentual)}%)`
-                  : "")
-              : "—"}
-          </dd>
-        </div>
-      </dl>
-
-      <p className="mt-4 text-sm text-zinc-700 dark:text-zinc-300">
+      <p className="mt-1.5 max-w-prose text-sm text-text-secondary">
         {mensagemStatusPreco({
           ano: resultado.ano,
           status,
@@ -107,17 +75,22 @@ export function ResumoResultado({ resultado }: ResumoResultadoProps) {
         })}
       </p>
 
-      <p className="mt-2 text-sm text-zinc-700 dark:text-zinc-300">
-        Desconto ainda disponível:{" "}
-        {resultado.descontoMaximoPct !== null ? (
-          <>
-            <strong>{formatarPct(resultado.descontoMaximoPct)}%</strong> — até R${" "}
-            {formatarReais(valorDescontoMaximoReais)}
-          </>
-        ) : (
-          "—"
-        )}
-      </p>
+      <div className="mt-6 flex flex-wrap gap-x-10 gap-y-3 border-t border-border pt-5">
+        <div>
+          <p className="text-xs text-muted">Preço analisado</p>
+          <p className="font-figures mt-0.5 text-sm font-medium text-text-primary">
+            R$ {formatarReais(resultado.preco)}
+          </p>
+        </div>
+        <div>
+          <p className="text-xs text-muted">Desconto disponível</p>
+          <p className="font-figures mt-0.5 text-sm font-medium text-text-primary">
+            {resultado.descontoMaximoPct !== null
+              ? `${formatarPct(resultado.descontoMaximoPct)}% · até R$ ${formatarReais(valorDescontoMaximoReais)}`
+              : "—"}
+          </p>
+        </div>
+      </div>
     </section>
   );
 }
