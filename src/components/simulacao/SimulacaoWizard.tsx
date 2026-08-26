@@ -71,6 +71,7 @@ export function SimulacaoWizard() {
   // "resultado" — sem isso o TS não consegue estreitar para EtapaWizard.
   const etapa: EtapaWizard = ui.etapaAtual === "resultado" ? "operacao" : ui.etapaAtual;
   const indiceAtual = ORDEM_ETAPAS.indexOf(etapa);
+  const eUltimaEtapa = etapa === "mercado";
 
   function errosDaEtapaAtual(): string[] {
     if (etapa === "margens") {
@@ -107,10 +108,16 @@ export function SimulacaoWizard() {
 
   async function aoSubmeter(evento: React.FormEvent) {
     evento.preventDefault();
+    // Guarda de verdade contra pular a Etapa Mercado: o handler de Enter
+    // (abaixo) cobre o gatilho mais comum de submit espúrio, mas o próprio
+    // `onSubmit` do <form> pode disparar por qualquer outro motivo (ex.: um
+    // clique que caia sobre o botão de submit no instante em que ele troca
+    // de "Continuar" para "Simular"). `aoSubmeter` não deve confiar que
+    // "onSubmit disparou" implica "o usuário está no Mercado" — só
+    // `executarSimulacao()` quando isso for realmente verdade.
+    if (!eUltimaEtapa) return;
     await executarSimulacao();
   }
-
-  const eUltimaEtapa = etapa === "mercado";
 
   // Causa raiz do bug de pular a Etapa Mercado: o wizard inteiro é um único
   // <form>, e o navegador submete um <form> ao apertar Enter num campo
