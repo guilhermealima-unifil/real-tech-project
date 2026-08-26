@@ -1,26 +1,88 @@
 @import "tailwindcss";
 
+/**
+ * Fundação de tokens visuais (Real Tech Identity — ver docs/06-design-system.md,
+ * seção "Fundação de tokens"). 12 tokens, claro/escuro, redefinidos só aqui —
+ * nenhum componente deve declarar um hex novo por conta própria.
+ *
+ * Como funciona o dark mode aqui: cada token abaixo é redefinido dentro de
+ * `@media (prefers-color-scheme: dark)`. Como `@theme inline` só referencia
+ * essas variáveis (nunca um valor fixo), qualquer utilitário Tailwind gerado
+ * a partir delas (ex.: `bg-primary`, `text-muted`) já se adapta sozinho ao
+ * dark mode — sem precisar do prefixo `dark:` em cada uso.
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --background: #f6f4f0;
+  --surface: #ffffff;
+  --surface-elevated: #fcfbf8;
+  --border: #e2ded4;
+  --text-primary: #18171c;
+  --text-secondary: #58554d;
+  --muted: #8d897e;
+  --primary: #0f4c57;
+  --success: #1f8a5f;
+  --warning: #a6690a;
+  --danger: #b02e26;
+  --focus: #0f4c57;
+  --shadow-elevated: 0 1px 2px rgba(24, 23, 28, 0.04), 0 8px 24px -12px rgba(24, 23, 28, 0.12);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #0d0d0f;
+    --surface: #17161a;
+    --surface-elevated: #1e1d22;
+    --border: #2c2a30;
+    --text-primary: #f3f1ea;
+    --text-secondary: #a8a49b;
+    --muted: #6e6a62;
+    --primary: #4fb6ae;
+    --success: #3fbe83;
+    --warning: #e0a83d;
+    --danger: #e2564c;
+    --focus: #4fb6ae;
+    --shadow-elevated: 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 32px -16px rgba(0, 0, 0, 0.5);
   }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-elevated: var(--surface-elevated);
+  --color-border: var(--border);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-muted: var(--muted);
+  --color-primary: var(--primary);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --color-focus: var(--focus);
+  --shadow-elevated: var(--shadow-elevated);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+/**
+ * Tipografia numérica — "instrumento de precisão", não terminal. Usar só em
+ * dinheiro, percentuais e outros valores financeiros de destaque; nunca em
+ * texto corrido. Ainda não aplicada em nenhum componente (wizard/Resultado
+ * ficam para a próxima etapa) — a classe já existe pronta para uso.
+ */
+@utility font-figures {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
 }
 
 body {
   background: var(--background);
-  color: var(--foreground);
+  color: var(--text-primary);
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+}
+
+/* Foco visível consistente em qualquer elemento interativo novo do shell — componentes que já têm tratamento de foco próprio (ex.: os gráficos SVG) continuam intocados. */
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: 2px;
 }

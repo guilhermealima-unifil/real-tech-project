@@ -14,7 +14,81 @@ texto de recomendação, não só para o dado numérico.
 
 ---
 
-## 1. Cor
+## 0. Fundação de tokens (Real Tech Identity — nova nesta etapa)
+
+Primeira etapa da evolução visual proposta na auditoria "Real Tech
+Identity" (design lead, pós-Sprint Day): fundação de tokens + shell global
++ header. **Só isto foi implementado** — wizard, Resultado, análise de
+desconto e os gráficos continuam no padrão zinc puro descrito na seção 1
+abaixo, que segue válida para eles até a próxima etapa de migração.
+
+### Tokens
+
+12 variáveis CSS em `src/app/globals.css`, claro e escuro, expostas como
+utilitários Tailwind via `@theme inline` (ex.: `bg-primary`,
+`text-text-secondary`, `border-border`). Cada token é redefinido dentro de
+`@media (prefers-color-scheme: dark)` — como os utilitários só referenciam
+a variável (nunca um hex fixo), eles se adaptam ao dark mode sozinhos, sem
+precisar do prefixo `dark:` em cada uso (diferença importante em relação à
+paleta zinc pura, que ainda exige o par claro/escuro manual em todo lugar).
+
+| Token | Claro | Escuro | Uso |
+|---|---|---|---|
+| `background` | `#F6F4F0` | `#0D0D0F` | fundo global (`body`) |
+| `surface` | `#FFFFFF` | `#17161A` | cards padrão (ainda não migrados) |
+| `surface-elevated` | `#FCFBF8` + `shadow-elevated` | `#1E1D22` + sombra mais forte | reservado para a próxima etapa (resumo executivo) |
+| `border` | `#E2DED4` | `#2C2A30` | bordas de card, header |
+| `text-primary` | `#18171C` | `#F3F1EA` | texto principal |
+| `text-secondary` | `#58554D` | `#A8A49B` | subtítulos |
+| `muted` | `#8D897E` | `#6E6A62` | rótulos terciários, itens futuros do header |
+| `primary` | `#0F4C57` | `#4FB6AE` | destaque de marca — uso restrito (ver regra abaixo) |
+| `success` | `#1F8A5F` | `#3FBE83` | reservado; wizard/Resultado ainda usam `emerald-*` |
+| `warning` | `#A6690A` | `#E0A83D` | reservado; ainda `amber-*` |
+| `danger` | `#B02E26` | `#E2564C` | reservado; ainda `red-*` |
+| `focus` | = `primary` | = `primary` | `:focus-visible` global (novo) |
+
+**Regra de uso do `primary`:** é a única cor de marca do produto — reservada
+para "onde a decisão/atenção está" (hoje: item de navegação ativo e o botão
+"Nova simulação" do header usa tinta neutra, não `primary`, de propósito).
+Não é usada para status (isso continua sendo `success`/`warning`/`danger`,
+que hoje ainda vivem como classes Tailwind cruas nos componentes não
+migrados).
+
+### Tipografia numérica
+
+Classe utilitária nova, `font-figures` (`@utility` em `globals.css`):
+`font-family: var(--font-mono)` (Geist Mono, já carregado, antes sem uso) +
+`font-variant-numeric: tabular-nums`. Existe e está pronta, mas **ainda não
+é usada em nenhum componente** — aplicar em valores de R$/% fica para a
+etapa de migração do wizard/Resultado.
+
+### Shell global
+
+`src/app/layout.tsx` passou a montar a estrutura
+`<SimulationProvider><Header /><main>{children}</main></SimulationProvider>` —
+`SimulationProvider` subiu de `page.tsx` para o layout porque o `Header`
+precisa do mesmo estado compartilhado (saber quando mostrar "Nova
+simulação"). `<main>` fixa largura máxima de `840px`, gutters `px-6` e
+espaçamento vertical `gap-8` — antes isso vivia dentro de `page.tsx`; agora
+é herdado por qualquer conteúdo que passe a existir no futuro.
+
+### Header
+
+`src/components/shell/Header.tsx`. Marca "Real Tech" (com "Real" na cor
+`primary` — o nome do produto é também o nome da moeda que ele precifica).
+"Simulador" é o único item de navegação real (`<Link href="/">`,
+`aria-current="page"`). "Histórico" e "Como funciona" ainda não têm rota —
+aparecem como texto simples com selo "em breve", **nunca como link/botão**:
+um controle desabilitado fingindo ser navegação é pior do que informação
+sem controle nenhum. "Nova simulação" só aparece quando
+`ui.etapaAtual === "resultado"` (reaproveita `novaSimulacao()` do
+`SimulationProvider`, mesma ação do botão que já existia dentro de
+`ResultadoSimulacao`) — fica oculta durante o wizard para não convidar a
+descartar dados que o usuário ainda está preenchendo.
+
+---
+
+## 1. Cor (padrão anterior — ainda em uso no wizard, Resultado e gráficos)
 
 Paleta neutra em **zinc** (Tailwind) + 3 cores semânticas. Nenhuma cor de
 marca própria foi definida ainda — o produto usa só a paleta padrão do
@@ -178,6 +252,12 @@ estilo):
   posicionado sobre o SVG, ou trocar para uma lib de gráfico — o que
   contradiria a decisão deliberada de manter um SVG próprio, sem
   dependência externa (`CLAUDE.md`).
-- Não existe token de cor de marca própria — todo o produto usa a paleta
-  padrão zinc/emerald/red/amber do Tailwind. Aceitável para o Sprint Day;
-  primeira coisa a revisar se o produto for além do hackathon.
+- ~~Não existe token de cor de marca própria~~ — **resolvido na etapa
+  "Real Tech Identity — fundação"** (seção 0): 12 tokens claro/escuro +
+  shell + header. O que falta agora não é o token, é a migração — wizard,
+  Resultado, análise de desconto e os gráficos continuam no zinc/emerald/
+  red/amber cru descrito na seção 1, por decisão explícita de escopo dessa
+  etapa (fundação primeiro, migração de componente depois).
+- Gráficos (`FaixaViavelChart`, `ImpactoCaixaChart`) continuam com hex fixo
+  dentro do `<svg>`, ilegível no dark mode — não tratado nesta etapa
+  (fora de escopo, ver seção 0); é o próximo item de maior impacto.
