@@ -51,9 +51,36 @@ export function ImpactoCaixaChart({ resultados, anoSelecionado, onSelecionarAno 
         const baseY = ALTURA - PAD_BAIXO;
         const barX = x(r.ano);
         const selecionado = r.ano === anoSelecionado;
+        // Coluna de toque bem mais larga que a barra visível (LARGURA_BARRA
+        // fica pequena demais em mobile depois da escala do viewBox).
+        const larguraColuna = resultados.length > 1 ? plotWidth / resultados.length : plotWidth;
+        const centroBarra = barX + LARGURA_BARRA / 2;
 
         return (
-          <g key={r.ano} className="cursor-pointer" onClick={() => onSelecionarAno(r.ano)}>
+          <g
+            key={r.ano}
+            role="button"
+            tabIndex={0}
+            aria-pressed={selecionado}
+            aria-label={`Selecionar ano ${r.ano}: R$ ${formatarReais(r.valorProtegido)} protegido, R$ ${formatarReais(
+              r.valorEmRisco,
+            )} em risco`}
+            className="cursor-pointer outline-none focus-visible:opacity-80"
+            onClick={() => onSelecionarAno(r.ano)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onSelecionarAno(r.ano);
+              }
+            }}
+          >
+            <rect
+              x={centroBarra - larguraColuna / 2}
+              y={PAD_TOPO}
+              width={larguraColuna}
+              height={plotHeight}
+              fill="transparent"
+            />
             <rect
               x={barX}
               y={baseY - alturaProtegido}
@@ -77,17 +104,17 @@ export function ImpactoCaixaChart({ resultados, anoSelecionado, onSelecionarAno 
                 width={LARGURA_BARRA + 4}
                 height={alturaProtegido + alturaRisco + 4}
                 fill="none"
-                stroke="#18181b"
+                className="stroke-zinc-900 dark:stroke-zinc-50"
                 strokeWidth={1.5}
               />
             )}
             <text
-              x={barX + LARGURA_BARRA / 2}
+              x={centroBarra}
               y={ALTURA - PAD_BAIXO + 20}
               textAnchor="middle"
-              fontSize={12}
-              fill={selecionado ? "#18181b" : "#71717a"}
+              fontSize={15}
               fontWeight={selecionado ? 700 : 400}
+              className={selecionado ? "fill-zinc-900 dark:fill-zinc-50" : "fill-zinc-500 dark:fill-zinc-400"}
             >
               {r.ano}
             </text>
@@ -95,10 +122,22 @@ export function ImpactoCaixaChart({ resultados, anoSelecionado, onSelecionarAno 
         );
       })}
 
-      <text x={PAD_ESQUERDA - 8} y={PAD_TOPO + 4} textAnchor="end" fontSize={11} fill="#71717a">
+      <text
+        x={PAD_ESQUERDA - 8}
+        y={PAD_TOPO + 4}
+        textAnchor="end"
+        fontSize={13}
+        className="fill-zinc-500 dark:fill-zinc-400"
+      >
         {formatarReais(yMax)}
       </text>
-      <text x={PAD_ESQUERDA - 8} y={ALTURA - PAD_BAIXO} textAnchor="end" fontSize={11} fill="#71717a">
+      <text
+        x={PAD_ESQUERDA - 8}
+        y={ALTURA - PAD_BAIXO}
+        textAnchor="end"
+        fontSize={13}
+        className="fill-zinc-500 dark:fill-zinc-400"
+      >
         0
       </text>
     </svg>

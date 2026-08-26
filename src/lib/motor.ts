@@ -20,7 +20,6 @@
 import { recomendacaoCaixaParaAno, recomendacaoParaAno } from "./frases";
 
 export type FormulaTipo = "multiplicador" | "markup";
-export type Regime = "simples" | "lucroReal";
 export type CenarioRepasse = "integral" | "gradual" | "absorcao";
 
 export interface ParametroTributarioAno {
@@ -41,7 +40,6 @@ export interface SimularEntrada {
   markupPct?: number;
   margemAlvoPct: number;
   margemMinimaPct: number;
-  regime: Regime;
   tetoPracaMin?: number;
   tetoPracaMax?: number;
   /**

@@ -134,6 +134,52 @@ absorção) — isso é uma escolha de estratégia de preço do lojista, não um
 regra tributária, e já foi decidido em código (ver CLAUDE.md, seção
 "Desenho do motor"). O contador só entra nos seis pontos acima.
 
+## Campo `regime` (Simples Nacional / Lucro Real) — removido do formulário até decisão com o contador
+
+**Status: fora do formulário/validação/motor desde 25/08/2026.** Uma
+auditoria (docs/07, seção 3) encontrou que `regime` era coletado na tela
+mas nunca lido dentro de `simular()` — o resultado numérico era idêntico
+entre Simples e Lucro Real para os mesmos outros campos, apesar de docs/02
+(seção 2.1) e docs/04 (seção 10.4) dizerem que regime "entra como
+parâmetro do cálculo". Decisão tomada com o usuário: em vez de manter um
+campo que aparenta funcionalidade que não existe (risco de leitura de
+"bug" no Q&A), removê-lo de `SimularEntrada`/`entrada`
+(`src/lib/motor.ts`), da validação (`src/lib/validacao.ts`), da rota
+(`src/app/api/simular-cenarios/route.ts`), do formulário (`src/app/page.tsx`)
+e dos testes (`src/lib/motor.test.ts`) até a regra de como ele deveria
+afetar o cálculo ser decidida com o contador — e então reintroduzi-lo.
+
+A única pista concreta que já temos de como isso poderia funcionar é a
+mesma da tabela principal deste documento: PIS/Cofins varia entre regime
+cumulativo (3,65%) e não-cumulativo (9,25%). Mas Simples Nacional
+tecnicamente recolhe por DAS unificado, não por PIS/Cofins/ICMS/ISS
+separados como o motor atual soma — então a regra provavelmente não é só
+"trocar um percentual dentro do mesmo somatório", precisa de uma resposta
+específica do contador sobre como (ou se) modelar o Simples nesse motor.
+
+- [ ] Perguntar ao contador: para o motor atual (que soma
+      `cbsPct+ibsPct+pisCofinsPct+icmsIssPct` por ano, igual para qualquer
+      empresa), faz sentido usar um conjunto de alíquotas diferente para
+      Simples Nacional vs Lucro Real? Se sim, qual a diferença concreta?
+- [ ] Se a resposta exigir uma lógica de cálculo diferente (não só uma
+      alíquota diferente) para o Simples — por causa do DAS unificado —,
+      isso é uma mudança maior no motor: decidir com o time se cabe no
+      roadmap pós-Pitch ou se muda o MVP.
+
+**Pergunta para o contador (roteiro em linguagem simples), item 8:**
+
+8. **"O app hoje soma CBS + IBS + PIS/Cofins + ICMS/ISS num único
+   percentual por ano, igual para qualquer empresa. Isso faz sentido para
+   uma empresa do Simples Nacional, ou o Simples precisa de uma conta
+   diferente, já que paga tudo junto no DAS? Se precisar, qual é essa
+   conta?"** — a resposta decide se e como o campo "regime tributário"
+   volta a aparecer na tela, e se ele muda o número final do preço ou só o
+   texto da recomendação.
+
+Quando isso for respondido, reintroduzir `regime` nos arquivos listados
+acima — o código removido fica recuperável pelo histórico do git (commit
+de 25/08/2026 que tira `regime` do formulário).
+
 ## Split payment — prazo de liberação do crédito (Fase 5, módulo de caixa)
 
 **Status: NÃO validado com o contador — mesma pendência do resto deste

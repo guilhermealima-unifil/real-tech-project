@@ -68,31 +68,35 @@ export function PainelRecomendacao({
       </dl>
 
       <div className="mt-5 border-t border-current/10 pt-4">
-        <label className="flex flex-col gap-2 text-sm">
-          <span className="font-medium text-zinc-700 dark:text-zinc-300">
-            Desconto pedido pelo cliente (%)
-          </span>
-          <div className="flex items-center gap-3">
-            <input
-              type="range"
-              min="0"
-              max="100"
-              step="0.5"
-              value={descontoPedidoPct}
-              onChange={(e) => onDescontoPedidoChange(Number(e.target.value))}
-              className="w-full"
-            />
+        <span id="rotulo-desconto-pedido" className="font-medium text-zinc-700 dark:text-zinc-300">
+          Desconto pedido pelo cliente (%)
+        </span>
+        <div className="mt-2 flex items-center gap-3">
+          <input
+            type="range"
+            min="0"
+            max="100"
+            step="0.5"
+            aria-labelledby="rotulo-desconto-pedido"
+            value={descontoPedidoPct}
+            onChange={(e) => onDescontoPedidoChange(Number(e.target.value))}
+            className="w-full"
+          />
+          <label className="flex items-center gap-1">
+            <span className="sr-only">Desconto pedido pelo cliente, em percentual</span>
             <input
               type="number"
               min="0"
               max="100"
               step="0.5"
               value={descontoPedidoPct}
-              onChange={(e) => onDescontoPedidoChange(Number(e.target.value) || 0)}
+              onChange={(e) =>
+                onDescontoPedidoChange(Math.min(100, Math.max(0, Number(e.target.value) || 0)))
+              }
               className="w-20 rounded border border-zinc-300 px-2 py-1 text-right dark:border-zinc-700 dark:bg-zinc-900"
             />
-          </div>
-        </label>
+          </label>
+        </div>
 
         <p className="mt-3 text-sm font-medium text-zinc-900 dark:text-zinc-50">
           {!primeiroAnoQueNaoCabe
@@ -108,18 +112,16 @@ export function PainelRecomendacao({
             return (
               <span
                 key={r.ano}
-                title={
-                  r.descontoMaximoPct !== null
-                    ? `${r.ano}: desconto máximo ${formatarPct(r.descontoMaximoPct)}%`
-                    : `${r.ano}: sem desconto máximo calculável`
-                }
-                className={`rounded px-2 py-1 text-xs font-medium ${
+                className={`flex flex-col items-center rounded px-2 py-1 text-xs font-medium leading-tight ${
                   cabe
                     ? "bg-emerald-600/15 text-emerald-800 dark:text-emerald-300"
                     : "bg-red-600/15 text-red-800 dark:text-red-300"
                 }`}
               >
-                {r.ano}
+                <span>{r.ano}</span>
+                <span className="text-[10px] opacity-80">
+                  {r.descontoMaximoPct !== null ? `${formatarPct(r.descontoMaximoPct)}%` : "—"}
+                </span>
               </span>
             );
           })}

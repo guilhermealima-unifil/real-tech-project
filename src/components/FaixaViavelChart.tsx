@@ -66,34 +66,72 @@ export function FaixaViavelChart({ resultados, anoSelecionado, onSelecionarAno }
       {temTeto && (
         <polyline points={pontosTopo} fill="none" stroke="#b91c1c" strokeWidth={2} strokeDasharray="6 4" />
       )}
-      <polyline points={pontosPreco} fill="none" stroke="#18181b" strokeWidth={2.5} />
+      <polyline
+        points={pontosPreco}
+        fill="none"
+        strokeWidth={2.5}
+        className="stroke-zinc-900 dark:stroke-zinc-50"
+      />
 
       {resultados.map((r) => {
         const cx = x(r.ano);
         const cy = y(r.preco);
         const selecionado = r.ano === anoSelecionado;
+        // Coluna de toque bem mais larga que o ponto visível — o ponto
+        // (r=5/7) fica pequeno demais para toque em mobile depois da
+        // escala do viewBox; a faixa inteira da coluna do ano é clicável.
+        const larguraColuna = resultados.length > 1 ? plotWidth / resultados.length : plotWidth;
+
         return (
-          <g key={r.ano}>
-            <line x1={cx} y1={PAD_TOPO} x2={cx} y2={ALTURA - PAD_BAIXO} stroke="#e4e4e7" strokeWidth={1} />
+          <g
+            key={r.ano}
+            role="button"
+            tabIndex={0}
+            aria-pressed={selecionado}
+            aria-label={`Selecionar ano ${r.ano}, preço R$ ${formatarReais(r.preco)}${
+              r.alertaDisparado ? ", alerta ativo" : ""
+            }`}
+            className="cursor-pointer outline-none focus-visible:opacity-80"
+            onClick={() => onSelecionarAno(r.ano)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onSelecionarAno(r.ano);
+              }
+            }}
+          >
+            <rect
+              x={cx - larguraColuna / 2}
+              y={PAD_TOPO}
+              width={larguraColuna}
+              height={ALTURA - PAD_TOPO - PAD_BAIXO}
+              fill="transparent"
+            />
+            <line
+              x1={cx}
+              y1={PAD_TOPO}
+              x2={cx}
+              y2={ALTURA - PAD_BAIXO}
+              className="stroke-zinc-200 dark:stroke-zinc-800"
+              strokeWidth={1}
+            />
             <circle
               cx={cx}
               cy={cy}
               r={selecionado ? 7 : 5}
-              fill={r.alertaDisparado ? "#dc2626" : "#18181b"}
-              stroke="#fff"
+              className={
+                (r.alertaDisparado ? "fill-red-600" : "fill-zinc-900 dark:fill-zinc-50") +
+                " stroke-white dark:stroke-zinc-950"
+              }
               strokeWidth={selecionado ? 2 : 1}
-              className="cursor-pointer"
-              onClick={() => onSelecionarAno(r.ano)}
             />
             <text
               x={cx}
               y={ALTURA - PAD_BAIXO + 20}
               textAnchor="middle"
-              fontSize={12}
-              fill={selecionado ? "#18181b" : "#71717a"}
+              fontSize={15}
               fontWeight={selecionado ? 700 : 400}
-              className="cursor-pointer"
-              onClick={() => onSelecionarAno(r.ano)}
+              className={selecionado ? "fill-zinc-900 dark:fill-zinc-50" : "fill-zinc-500 dark:fill-zinc-400"}
             >
               {r.ano}
             </text>
@@ -101,10 +139,22 @@ export function FaixaViavelChart({ resultados, anoSelecionado, onSelecionarAno }
         );
       })}
 
-      <text x={PAD_ESQUERDA - 8} y={y(yDomainMax) + 4} textAnchor="end" fontSize={11} fill="#71717a">
+      <text
+        x={PAD_ESQUERDA - 8}
+        y={y(yDomainMax) + 4}
+        textAnchor="end"
+        fontSize={13}
+        className="fill-zinc-500 dark:fill-zinc-400"
+      >
         {formatarReais(yDomainMax)}
       </text>
-      <text x={PAD_ESQUERDA - 8} y={y(yDomainMin) + 4} textAnchor="end" fontSize={11} fill="#71717a">
+      <text
+        x={PAD_ESQUERDA - 8}
+        y={y(yDomainMin) + 4}
+        textAnchor="end"
+        fontSize={13}
+        className="fill-zinc-500 dark:fill-zinc-400"
+      >
         {formatarReais(yDomainMin)}
       </text>
     </svg>

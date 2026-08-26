@@ -9,9 +9,9 @@
  * antes de chamar `simular()`.
  */
 
-export type FormulaTipo = "multiplicador" | "markup";
-export type Regime = "simples" | "lucroReal";
-export type CenarioRepasse = "integral" | "gradual" | "absorcao";
+import type { FormulaTipo, CenarioRepasse } from "./motor";
+
+export type { FormulaTipo, CenarioRepasse };
 
 export interface EntradaSimulacaoAPI {
   ramoId: string;
@@ -21,7 +21,6 @@ export interface EntradaSimulacaoAPI {
   markupPct?: number;
   margemAlvoPct: number;
   margemMinimaPct: number;
-  regime: Regime;
   tetoPracaMin?: number;
   tetoPracaMax?: number;
   cenarioRepasse?: CenarioRepasse;
@@ -84,9 +83,6 @@ export function validarEntradaSimulacao(body: unknown): ResultadoValidacao {
     erros.push("margemMinimaPct não pode ser maior que margemAlvoPct.");
   }
 
-  const regime = b.regime === "simples" || b.regime === "lucroReal" ? (b.regime as Regime) : undefined;
-  if (!regime) erros.push('regime deve ser "simples" ou "lucroReal".');
-
   const tetoPracaMin = numero(b.tetoPracaMin);
   const tetoPracaMax = numero(b.tetoPracaMax);
   if (b.tetoPracaMin !== undefined && (tetoPracaMin === undefined || tetoPracaMin <= 0)) {
@@ -121,7 +117,6 @@ export function validarEntradaSimulacao(body: unknown): ResultadoValidacao {
       markupPct,
       margemAlvoPct: margemAlvoPct as number,
       margemMinimaPct: margemMinimaPct as number,
-      regime: regime as Regime,
       tetoPracaMin,
       tetoPracaMax,
       cenarioRepasse: cenarioRepasse as CenarioRepasse,

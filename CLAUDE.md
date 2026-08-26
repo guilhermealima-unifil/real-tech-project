@@ -125,6 +125,11 @@ tributário da compra vs. split payment, ano a ano.
 - [ ] `/api/simulacoes`, `/api/simulacoes/[id]`, `/api/empresas`
   (persistência) — bônus, não bloqueiam o Pitch, e não fazem parte da Fase 5
   (são um item separado na "ordem de corte" de docs/00, seção 7).
+- [ ] Campo `regime` (Simples Nacional / Lucro Real) — removido do
+  formulário/validação/motor em 25/08/2026 (era coletado mas nunca entrava
+  no cálculo, apesar de docs/02 e docs/04 dizerem que deveria). Pergunta
+  registrada para o contador e caminho para reintroduzir: docs/05, seção
+  "Campo `regime`...".
 
 Nada da lista pendente deve ser construído sem alinhar antes, especialmente
 o contrato dos endpoints de persistência (Fase 4+) — e nenhum número da

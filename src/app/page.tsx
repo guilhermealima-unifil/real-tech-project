@@ -1,7 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { calcularImpactoCaixa, type CenarioRepasse, type ImpactoCaixaAno, type ParametroTributarioAno, type ResultadoAno } from "@/lib/motor";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  calcularImpactoCaixa,
+  type CenarioRepasse,
+  type FormulaTipo,
+  type ImpactoCaixaAno,
+  type ParametroTributarioAno,
+  type ResultadoAno,
+} from "@/lib/motor";
 import { FaixaViavelChart } from "@/components/FaixaViavelChart";
 import { ImpactoCaixaChart } from "@/components/ImpactoCaixaChart";
 import { PainelRecomendacao } from "@/components/PainelRecomendacao";
@@ -24,9 +31,6 @@ interface ParametroInfo extends ParametroTributarioAno {
   fonte: string;
 }
 
-type FormulaTipo = "multiplicador" | "markup";
-type Regime = "simples" | "lucroReal";
-
 interface FormState {
   ramoId: string;
   custoCompra: string;
@@ -35,7 +39,6 @@ interface FormState {
   markupPct: string;
   margemAlvoPct: string;
   margemMinimaPct: string;
-  regime: Regime;
   tetoPracaMin: string;
   tetoPracaMax: string;
   prazoPagamentoFornecedorDias: string;
@@ -49,7 +52,6 @@ const FORM_INICIAL: FormState = {
   markupPct: "",
   margemAlvoPct: "",
   margemMinimaPct: "",
-  regime: "simples",
   tetoPracaMin: "",
   tetoPracaMax: "",
   prazoPagamentoFornecedorDias: "30",
@@ -67,7 +69,6 @@ const CASOS_REAIS: Record<string, { rotulo: string; ramoChave: string; form: Omi
       markupPct: "",
       margemAlvoPct: "35",
       margemMinimaPct: "30",
-      regime: "simples",
       tetoPracaMin: "",
       tetoPracaMax: "",
       prazoPagamentoFornecedorDias: "30",
@@ -83,7 +84,6 @@ const CASOS_REAIS: Record<string, { rotulo: string; ramoChave: string; form: Omi
       markupPct: "30",
       margemAlvoPct: "30",
       margemMinimaPct: "30",
-      regime: "lucroReal",
       tetoPracaMin: "",
       tetoPracaMax: "",
       prazoPagamentoFornecedorDias: "30",
@@ -95,6 +95,21 @@ function numOrUndefined(valor: string): number | undefined {
   if (valor.trim() === "") return undefined;
   const n = Number(valor);
   return Number.isFinite(n) ? n : undefined;
+}
+
+interface RespostaCenarios {
+  ramo: { rotulo: string; aliquotaSugerida: number };
+  cenarios: Record<CenarioRepasse, ResultadoAno[]>;
+}
+
+/** Guarda mínima de formato antes de confiar na resposta de /api/simular-cenarios — evita um `as` sem checagem em runtime. */
+function isRespostaCenariosValida(data: unknown): data is RespostaCenarios {
+  if (typeof data !== "object" || data === null) return false;
+  const d = data as Record<string, unknown>;
+  if (typeof d.ramo !== "object" || d.ramo === null) return false;
+  if (typeof d.cenarios !== "object" || d.cenarios === null) return false;
+  const cenarios = d.cenarios as Record<string, unknown>;
+  return (["integral", "gradual", "absorcao"] as const).every((chave) => Array.isArray(cenarios[chave]));
 }
 
 export default function Home() {
@@ -109,20 +124,62 @@ export default function Home() {
   const [descontoPedidoPct, setDescontoPedidoPct] = useState<number>(0);
   const [erros, setErros] = useState<string[]>([]);
   const [carregando, setCarregando] = useState(false);
+  const [carregandoRamos, setCarregandoRamos] = useState(true);
 
   const resultados = cenarios ? cenarios[cenarioSelecionado] : null;
   const parametrosInfo = parametros[0] ?? null;
 
+  // Ignora respostas de simulação que chegam depois de o usuário já ter
+  // trocado de caso/formulário — evita sobrescrever a tela com um
+  // resultado obsoleto (corrida de estado entre "carregar caso real" e
+  // uma simulação ainda em voo).
+  const requisicaoIdRef = useRef(0);
+  const tabsCenarioRef = useRef<(HTMLButtonElement | null)[]>([]);
+
+  function onCenarioTabKeyDown(evento: React.KeyboardEvent<HTMLButtonElement>, indice: number) {
+    if (evento.key !== "ArrowRight" && evento.key !== "ArrowLeft") return;
+    evento.preventDefault();
+    const delta = evento.key === "ArrowRight" ? 1 : -1;
+    const proximoIndice = (indice + delta + CENARIOS.length) % CENARIOS.length;
+    setCenarioSelecionado(CENARIOS[proximoIndice].valor);
+    tabsCenarioRef.current[proximoIndice]?.focus();
+  }
+
   useEffect(() => {
+    let cancelado = false;
+
     fetch("/api/ramos")
-      .then((r) => r.json())
-      .then((data: Ramo[]) => setRamos(data))
-      .catch(() => setErros((e) => [...e, "Não foi possível carregar os ramos."]));
+      .then((r) => {
+        if (!r.ok) throw new Error("resposta não-ok");
+        return r.json();
+      })
+      .then((data: Ramo[]) => {
+        if (!cancelado) setRamos(data);
+      })
+      .catch(() => {
+        if (!cancelado) setErros((e) => [...e, "Não foi possível carregar os ramos. Recarregue a página."]);
+      })
+      .finally(() => {
+        if (!cancelado) setCarregandoRamos(false);
+      });
 
     fetch("/api/parametros")
-      .then((r) => r.json())
-      .then((data: ParametroInfo[]) => setParametros(data))
-      .catch(() => {});
+      .then((r) => {
+        if (!r.ok) throw new Error("resposta não-ok");
+        return r.json();
+      })
+      .then((data: ParametroInfo[]) => {
+        if (!cancelado) setParametros(data);
+      })
+      .catch(() => {
+        if (!cancelado) {
+          setErros((e) => [...e, "Não foi possível carregar os parâmetros tributários. Recarregue a página."]);
+        }
+      });
+
+    return () => {
+      cancelado = true;
+    };
   }, []);
 
   const ramoSelecionado = useMemo(
@@ -138,6 +195,7 @@ export default function Home() {
     const caso = CASOS_REAIS[chave];
     const ramo = ramos.find((r) => r.chave === caso.ramoChave);
     if (!ramo) return;
+    requisicaoIdRef.current += 1; // invalida qualquer simulação ainda em voo
     setForm({ ramoId: ramo.id, ...caso.form });
     setCenarios(null);
     setImpactoCaixa(null);
@@ -149,6 +207,7 @@ export default function Home() {
     evento.preventDefault();
     setErros([]);
     setCarregando(true);
+    const idRequisicao = (requisicaoIdRef.current += 1);
 
     const corpo = {
       ramoId: form.ramoId,
@@ -158,7 +217,6 @@ export default function Home() {
       markupPct: form.formulaTipo === "markup" ? numOrUndefined(form.markupPct) : undefined,
       margemAlvoPct: numOrUndefined(form.margemAlvoPct),
       margemMinimaPct: numOrUndefined(form.margemMinimaPct),
-      regime: form.regime,
       tetoPracaMin: numOrUndefined(form.tetoPracaMin),
       tetoPracaMax: numOrUndefined(form.tetoPracaMax),
     };
@@ -169,14 +227,35 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(corpo),
       });
-      const data = await resposta.json();
+
+      let data: unknown;
+      try {
+        data = await resposta.json();
+      } catch {
+        throw new Error("Resposta inválida do servidor.");
+      }
+
+      if (requisicaoIdRef.current !== idRequisicao) return; // resposta obsoleta, ignorar
+
       if (!resposta.ok) {
-        setErros(data.erros ?? ["Erro ao simular."]);
+        const errosResposta =
+          typeof data === "object" && data !== null && Array.isArray((data as Record<string, unknown>).erros)
+            ? ((data as Record<string, unknown>).erros as string[])
+            : ["Erro ao simular."];
+        setErros(errosResposta);
         setCenarios(null);
         setImpactoCaixa(null);
         return;
       }
-      setCenarios(data.cenarios as Record<CenarioRepasse, ResultadoAno[]>);
+
+      if (!isRespostaCenariosValida(data)) {
+        setErros(["Resposta inesperada do servidor. Tente novamente."]);
+        setCenarios(null);
+        setImpactoCaixa(null);
+        return;
+      }
+
+      setCenarios(data.cenarios);
       setCenarioSelecionado("integral");
       setRamoSimulado(data.ramo);
       setAnoSelecionado(2026);
@@ -193,10 +272,12 @@ export default function Home() {
         setImpactoCaixa(null);
       }
     } catch {
+      if (requisicaoIdRef.current !== idRequisicao) return; // resposta obsoleta, ignorar
       setErros(["Não foi possível falar com o servidor. Verifique a rede e tente novamente."]);
+      setCenarios(null);
       setImpactoCaixa(null);
     } finally {
-      setCarregando(false);
+      if (requisicaoIdRef.current === idRequisicao) setCarregando(false);
     }
   }
 
@@ -219,7 +300,7 @@ export default function Home() {
           onSubmit={simular}
           className="rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-950"
         >
-          <div className="mb-4 flex flex-wrap gap-2">
+          <div className="mb-4 flex flex-wrap items-center gap-2" aria-busy={carregandoRamos}>
             {Object.entries(CASOS_REAIS).map(([chave, caso]) => (
               <button
                 key={chave}
@@ -231,6 +312,9 @@ export default function Home() {
                 {caso.rotulo}
               </button>
             ))}
+            {carregandoRamos && (
+              <span className="text-xs text-zinc-500 dark:text-zinc-400">Carregando ramos…</span>
+            )}
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -356,18 +440,6 @@ export default function Home() {
             </label>
 
             <label className="flex flex-col gap-1 text-sm">
-              <span className="font-medium text-zinc-700 dark:text-zinc-300">Regime tributário</span>
-              <select
-                value={form.regime}
-                onChange={(e) => atualizarCampo("regime", e.target.value as Regime)}
-                className="rounded border border-zinc-300 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900"
-              >
-                <option value="simples">Simples Nacional</option>
-                <option value="lucroReal">Lucro Real</option>
-              </select>
-            </label>
-
-            <label className="flex flex-col gap-1 text-sm">
               <span className="font-medium text-zinc-700 dark:text-zinc-300">
                 Prazo de pagamento ao fornecedor (dias)
               </span>
@@ -390,24 +462,30 @@ export default function Home() {
                 Preço da praça (opcional) — o que a concorrência pratica
               </span>
               <div className="flex gap-3">
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="mínimo"
-                  value={form.tetoPracaMin}
-                  onChange={(e) => atualizarCampo("tetoPracaMin", e.target.value)}
-                  className="w-1/2 rounded border border-zinc-300 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900"
-                />
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="máximo"
-                  value={form.tetoPracaMax}
-                  onChange={(e) => atualizarCampo("tetoPracaMax", e.target.value)}
-                  className="w-1/2 rounded border border-zinc-300 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900"
-                />
+                <label className="flex w-1/2 flex-col gap-1">
+                  <span className="sr-only">Preço da praça — mínimo</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="mínimo"
+                    value={form.tetoPracaMin}
+                    onChange={(e) => atualizarCampo("tetoPracaMin", e.target.value)}
+                    className="w-full rounded border border-zinc-300 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900"
+                  />
+                </label>
+                <label className="flex w-1/2 flex-col gap-1">
+                  <span className="sr-only">Preço da praça — máximo</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="máximo"
+                    value={form.tetoPracaMax}
+                    onChange={(e) => atualizarCampo("tetoPracaMax", e.target.value)}
+                    className="w-full rounded border border-zinc-300 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900"
+                  />
+                </label>
               </div>
               <span className="text-xs text-zinc-500 dark:text-zinc-400">
                 Normalmente esse dado chega no momento da venda, pelo próprio cliente — não precisa ter em mãos
@@ -443,13 +521,20 @@ export default function Home() {
             </div>
 
             <div className="mb-4 flex gap-2" role="tablist" aria-label="Cenário de repasse">
-              {CENARIOS.map((cenario) => (
+              {CENARIOS.map((cenario, indice) => (
                 <button
                   key={cenario.valor}
+                  ref={(el) => {
+                    tabsCenarioRef.current[indice] = el;
+                  }}
+                  id={`tab-cenario-${cenario.valor}`}
                   type="button"
                   role="tab"
                   aria-selected={cenarioSelecionado === cenario.valor}
+                  aria-controls="painel-cenario"
+                  tabIndex={cenarioSelecionado === cenario.valor ? 0 : -1}
                   onClick={() => setCenarioSelecionado(cenario.valor)}
+                  onKeyDown={(e) => onCenarioTabKeyDown(e, indice)}
                   className={
                     cenarioSelecionado === cenario.valor
                       ? "rounded-full bg-zinc-900 px-3 py-1 text-xs font-medium text-white dark:bg-zinc-50 dark:text-zinc-900"
@@ -461,11 +546,13 @@ export default function Home() {
               ))}
             </div>
 
-            <FaixaViavelChart
-              resultados={resultados}
-              anoSelecionado={anoSelecionado}
-              onSelecionarAno={setAnoSelecionado}
-            />
+            <div id="painel-cenario" role="tabpanel" aria-labelledby={`tab-cenario-${cenarioSelecionado}`}>
+              <FaixaViavelChart
+                resultados={resultados}
+                anoSelecionado={anoSelecionado}
+                onSelecionarAno={setAnoSelecionado}
+              />
+            </div>
           </section>
         )}
 
@@ -503,7 +590,7 @@ export default function Home() {
         )}
 
         {parametrosInfo && (
-          <footer className="text-xs text-zinc-400 dark:text-zinc-500">
+          <footer className="text-xs text-zinc-500 dark:text-zinc-400">
             Parâmetros tributários vigentes desde{" "}
             {new Date(parametrosInfo.vigencia).toLocaleDateString("pt-BR")} — {parametrosInfo.fonte}
           </footer>

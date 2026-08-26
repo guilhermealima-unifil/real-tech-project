@@ -33,7 +33,6 @@ describe("simular — motor de cálculo tributário", () => {
         despesaFixaPct: 0.2,
         margemAlvoPct: 0.35,
         margemMinimaPct: 0.3,
-        regime: "simples",
       },
       PARAMETROS_TESTE,
     );
@@ -48,7 +47,6 @@ describe("simular — motor de cálculo tributário", () => {
         markupPct: 0.3,
         margemAlvoPct: 0.3,
         margemMinimaPct: 0.25,
-        regime: "lucroReal",
       },
       PARAMETROS_TESTE,
     );
@@ -63,7 +61,6 @@ describe("simular — motor de cálculo tributário", () => {
         despesaFixaPct: 0.2,
         margemAlvoPct: 0.35,
         margemMinimaPct: 0.3,
-        regime: "simples",
       },
       PARAMETROS_TESTE,
     );
@@ -83,7 +80,6 @@ describe("simular — motor de cálculo tributário", () => {
         markupPct: 0.3,
         margemAlvoPct: 0.3,
         margemMinimaPct: 0.25,
-        regime: "lucroReal",
       },
       PARAMETROS_TESTE,
     );
@@ -104,7 +100,6 @@ describe("simular — motor de cálculo tributário", () => {
         despesaFixaPct: 0.2,
         margemAlvoPct: 0.35,
         margemMinimaPct: 0.35, // igual à margem-alvo → preço calculado = piso
-        regime: "simples",
       },
       PARAMETROS_TESTE,
     );
@@ -121,7 +116,6 @@ describe("simular — motor de cálculo tributário", () => {
         despesaFixaPct: 0.2,
         margemAlvoPct: 0.35,
         margemMinimaPct: 0.35,
-        regime: "simples",
         tetoPracaMax: 150, // abaixo do piso (155)
       },
       PARAMETROS_TESTE,
@@ -139,7 +133,6 @@ describe("simular — motor de cálculo tributário", () => {
         despesaFixaPct: 0.2,
         margemAlvoPct: 0.35,
         margemMinimaPct: 0.3,
-        regime: "simples",
       },
       PARAMETROS_TESTE,
     );
@@ -174,7 +167,6 @@ describe("simular — motor de cálculo tributário", () => {
         despesaFixaPct: 0.2,
         margemAlvoPct: 0.38,
         margemMinimaPct: 0.35,
-        regime: "simples",
         tetoPracaMax: 160,
       },
       PARAMETROS_TESTE,
@@ -201,7 +193,6 @@ describe("simular — motor de cálculo tributário", () => {
         despesaFixaPct: 0.2,
         margemAlvoPct: 0.35,
         margemMinimaPct: 0.3,
-        regime: "simples" as const,
       };
 
       const integral = simular(entradaBase, PARAMETROS_TESTE);
@@ -234,7 +225,6 @@ describe("simular — motor de cálculo tributário", () => {
           // Alto o bastante para o delta de 2033 (3,85 p.p., ver PARAMETROS_TESTE)
           // furar o mínimo, provando que o alerta dispara sob absorção total.
           margemMinimaPct: 0.32,
-          regime: "simples",
           cenarioRepasse: "absorcao",
         },
         PARAMETROS_TESTE,
@@ -258,7 +248,6 @@ describe("simular — motor de cálculo tributário", () => {
         markupPct: 0.3,
         margemAlvoPct: 0.3,
         margemMinimaPct: 0.25,
-        regime: "lucroReal" as const,
       };
 
       const integral = simular(entradaBase, PARAMETROS_TESTE);
