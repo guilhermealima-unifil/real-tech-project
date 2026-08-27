@@ -48,6 +48,8 @@ model Simulacao {
   empresa             Empresa?         @relation(fields: [empresaId], references: [id])
   ramoId              String
   ramo                Ramo             @relation(fields: [ramoId], references: [id])
+  userId              String?
+  user                User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
   rotulo              String // "Caso EletroLondrina"
   formulaTipo         String // "multiplicador" | "markup"
   custoCompra         Decimal          @db.Decimal(12, 2)
@@ -62,6 +64,31 @@ model Simulacao {
   anosGradual         Int?             @default(3)
   createdAt           DateTime         @default(now())
   resultados          ResultadoAnual[]
+
+  @@index([userId])
+}
+
+model User {
+  id           String      @id @default(cuid())
+  nome         String
+  email        String      @unique
+  passwordHash String
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  sessions     Session[]
+  simulacoes   Simulacao[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 model ResultadoAnual {
