@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useSimulation } from "@/state/SimulationProvider";
+import { useAuth } from "@/state/AuthProvider";
 
 /**
  * Header global do shell (Real Tech Identity — ver docs/06-design-system.md).
@@ -9,10 +11,23 @@ import { useSimulation } from "@/state/SimulationProvider";
  * simples com selo "em breve", nunca como link/botão — não há rota para
  * apontar, e um controle desabilitado fingindo ser navegação é pior do que
  * nenhum controle. "Simulador" é o único item real, apontando para "/".
+ *
+ * Bloco de autenticação (novo): "Entrar" deslogado, primeiro nome + "Sair"
+ * autenticado. Enquanto `status === "loading"` (checagem inicial de
+ * GET /api/auth/me em AuthProvider), não mostra nada nesse espaço — evita
+ * piscar "Entrar" e trocar pro nome um instante depois a cada carregamento.
  */
 export function Header() {
   const { state, novaSimulacao } = useSimulation();
+  const { status, usuario, logout } = useAuth();
+  const router = useRouter();
   const emResultado = state.ui.etapaAtual === "resultado" && state.resultado !== null;
+  const primeiroNome = usuario?.nome.trim().split(/\s+/)[0];
+
+  async function aoSair() {
+    await logout();
+    router.push("/");
+  }
 
   return (
     <header className="border-b border-border bg-surface">
@@ -43,20 +58,42 @@ export function Header() {
           </span>
         </nav>
 
-        {/* Só aparece com um resultado fechado na tela — durante o wizard,
-            "nova simulação" já é o estado atual (ambíguo, potencialmente
-            destrutivo de dados que o usuário acabou de digitar). Reaproveita
-            novaSimulacao() do SimulationProvider, mesma ação do botão que já
-            existe em ResultadoSimulacao — nenhuma lógica de reset nova. */}
-        {emResultado && (
-          <button
-            type="button"
-            onClick={novaSimulacao}
-            className="shrink-0 rounded-md bg-text-primary px-4 py-2 text-sm font-medium text-background hover:opacity-90"
-          >
-            + Nova simulação
-          </button>
-        )}
+        <div className="flex shrink-0 items-center gap-4">
+          {/* Só aparece com um resultado fechado na tela — durante o wizard,
+              "nova simulação" já é o estado atual (ambíguo, potencialmente
+              destrutivo de dados que o usuário acabou de digitar). Reaproveita
+              novaSimulacao() do SimulationProvider, mesma ação do botão que já
+              existe em ResultadoSimulacao — nenhuma lógica de reset nova. */}
+          {emResultado && (
+            <button
+              type="button"
+              onClick={novaSimulacao}
+              className="rounded-md bg-text-primary px-4 py-2 text-sm font-medium text-background hover:opacity-90"
+            >
+              + Nova simulação
+            </button>
+          )}
+
+          {status === "autenticado" && usuario ? (
+            <div className="flex items-center gap-3 text-sm">
+              <span className="text-text-secondary">{primeiroNome}</span>
+              <button
+                type="button"
+                onClick={aoSair}
+                className="font-medium text-text-secondary transition-colors hover:text-text-primary"
+              >
+                Sair
+              </button>
+            </div>
+          ) : status === "deslogado" ? (
+            <Link
+              href="/login"
+              className="text-sm font-medium text-text-secondary transition-colors hover:text-text-primary"
+            >
+              Entrar
+            </Link>
+          ) : null}
+        </div>
       </div>
     </header>
   );

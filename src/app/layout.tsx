@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { AuthProvider } from "@/state/AuthProvider";
 import { SimulationProvider } from "@/state/SimulationProvider";
 import { Header } from "@/components/shell/Header";
 import "./globals.css";
@@ -26,6 +27,10 @@ export const metadata: Metadata = {
  * compartilhado — ex. saber quando mostrar "Nova simulação". Isso não é uma
  * segunda instância de estado: é a mesma árvore, só com o provider um nível
  * acima.
+ *
+ * AuthProvider é irmão de SimulationProvider, por fora — autenticação e
+ * simulação são estados independentes (o simulador continua público e
+ * funcional sem login); nenhum dos dois lê o estado do outro.
  */
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
@@ -34,12 +39,14 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <SimulationProvider>
-          <Header />
-          <main className="mx-auto flex w-full max-w-[840px] flex-1 flex-col gap-8 px-6 py-10">
-            {children}
-          </main>
-        </SimulationProvider>
+        <AuthProvider>
+          <SimulationProvider>
+            <Header />
+            <main className="mx-auto flex w-full max-w-[840px] flex-1 flex-col gap-8 px-6 py-10">
+              {children}
+            </main>
+          </SimulationProvider>
+        </AuthProvider>
       </body>
     </html>
   );
