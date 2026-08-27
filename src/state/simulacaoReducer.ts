@@ -67,10 +67,26 @@ export const FORM_INICIAL: SimulationFormState = {
 export interface SimulationResult {
   cenarios: Record<CenarioRepasse, ResultadoAno[]>;
   impactoCaixa: ImpactoCaixaAno[] | null;
-  ramo: { rotulo: string; aliquotaSugerida: number } | null;
+  ramo: { id: string; rotulo: string; aliquotaSugerida: number } | null;
   formulaTipo: FormulaTipo;
   /** Custo de compra usado nesta simulação — precisa acompanhar o snapshot para cálculos derivados de apresentação (ex.: margem após desconto) não dependerem do `form` ao vivo. */
   custoCompra: number;
+  /**
+   * Entradas do formulário no momento do submit (histórico/persistência) —
+   * snapshot, não `state.form` ao vivo, que o usuário pode ter editado
+   * depois de simular. Mesma convenção de unidade de EntradaSimulacaoAPI
+   * (src/lib/validacao.ts): percentual "inteiro" (20 = 20%), não a fração
+   * que `simular()` consome internamente.
+   */
+  entradaSnapshot: {
+    despesaFixaPct: number | null;
+    markupPct: number | null;
+    margemAlvoPct: number;
+    margemMinimaPct: number;
+    tetoPracaMin: number | null;
+    tetoPracaMax: number | null;
+    prazoPagamentoFornecedorDias: number | null;
+  };
 }
 
 /**

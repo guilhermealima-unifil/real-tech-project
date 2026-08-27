@@ -43,27 +43,50 @@ model Empresa {
 }
 
 model Simulacao {
-  id                  String           @id @default(cuid())
-  empresaId           String?
-  empresa             Empresa?         @relation(fields: [empresaId], references: [id])
-  ramoId              String
-  ramo                Ramo             @relation(fields: [ramoId], references: [id])
-  userId              String?
-  user                User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
-  rotulo              String // "Caso EletroLondrina"
-  formulaTipo         String // "multiplicador" | "markup"
-  custoCompra         Decimal          @db.Decimal(12, 2)
-  despesaFixaPct      Decimal?         @db.Decimal(6, 4)
-  markupPct           Decimal?         @db.Decimal(6, 4)
-  margemAlvoPct       Decimal          @db.Decimal(6, 4)
-  margemMinimaPct     Decimal          @db.Decimal(6, 4)
-  aliquotaCustomizada Decimal?         @db.Decimal(6, 4)
-  tetoPracaMin        Decimal?         @db.Decimal(12, 2)
-  tetoPracaMax        Decimal?         @db.Decimal(12, 2)
-  cenarioRepasse      String           @default("integral") // "integral" | "gradual" | "absorcao"
-  anosGradual         Int?             @default(3)
-  createdAt           DateTime         @default(now())
-  resultados          ResultadoAnual[]
+  id        String   @id @default(cuid())
+  empresaId String?
+  empresa   Empresa? @relation(fields: [empresaId], references: [id])
+  ramoId    String
+  ramo      Ramo     @relation(fields: [ramoId], references: [id])
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  rotulo    String? // legado (Fase pré-histórico) — o fluxo atual não coleta rótulo, fica sempre null.
+
+  // Snapshot de exibição do ramo no momento da simulação — não depende de
+  // uma leitura futura de `Ramo` (ver CLAUDE.md, seção "SNAPSHOT" desta
+  // etapa): se o rótulo/alíquota sugerida do ramo mudar depois, o
+  // histórico continua mostrando o que o usuário viu na hora.
+  ramoRotulo           String?
+  ramoAliquotaSugerida Decimal? @db.Decimal(5, 2)
+
+  formulaTipo String // "multiplicador" | "markup"
+  custoCompra Decimal @db.Decimal(12, 2)
+
+  // Entradas do formulário, snapshot no momento do submit — convenção de
+  // unidade igual a EntradaSimulacaoAPI (src/lib/validacao.ts): percentual
+  // "inteiro" (20 = 20%), NÃO a fração que `simular()` consome
+  // internamente. Não são recalculadas: servem só para exibir o histórico.
+  despesaFixaPct      Decimal? @db.Decimal(6, 4)
+  markupPct           Decimal? @db.Decimal(6, 4)
+  margemAlvoPct       Decimal  @db.Decimal(6, 4)
+  margemMinimaPct     Decimal  @db.Decimal(6, 4)
+  aliquotaCustomizada Decimal? @db.Decimal(6, 4)
+  tetoPracaMin        Decimal? @db.Decimal(12, 2)
+  tetoPracaMax        Decimal? @db.Decimal(12, 2)
+
+  // Usado só pelo impacto no caixa (Fase 5) — não afeta `simular()`.
+  prazoPagamentoFornecedorDias Int?
+
+  // Legado (arquitetura pré-cliente, quando havia 1 cenário por Simulacao):
+  // o fluxo atual sempre roda e salva os três cenários de uma vez (ver
+  // ResultadoAnual.cenario abaixo). Mantido só para não quebrar as 2 linhas
+  // de seed existentes; não é lido nem escrito pelo código novo.
+  cenarioRepasse String @default("integral")
+  anosGradual    Int?   @default(3)
+
+  createdAt     DateTime            @default(now())
+  resultados    ResultadoAnual[]
+  impactosCaixa ImpactoCaixaAnual[]
 
   @@index([userId])
 }
@@ -91,10 +114,15 @@ model Session {
   @@index([expiresAt])
 }
 
+// Uma linha por (simulação, cenário de repasse, ano) — os três cenários
+// (integral/gradual/absorcao) são sempre calculados e salvos juntos (ver
+// src/lib/simulacaoCliente.ts). Campos espelham ResultadoAno (src/lib/motor.ts)
+// exatamente como calculado — nenhum valor é recalculado ao ler.
 model ResultadoAnual {
   id                   String    @id @default(cuid())
   simulacaoId          String
   simulacao            Simulacao @relation(fields: [simulacaoId], references: [id], onDelete: Cascade)
+  cenario              String // "integral" | "gradual" | "absorcao"
   ano                  Int
   preco                Decimal   @db.Decimal(12, 2)
   margemResultante     Decimal   @db.Decimal(6, 4)
@@ -103,6 +131,23 @@ model ResultadoAnual {
   teto                 Decimal?  @db.Decimal(12, 2)
   descontoMaximoPct    Decimal?  @db.Decimal(6, 4)
   alertaDisparado      Boolean   @default(false)
+  mensagemRecomendacao String?
+
+  @@unique([simulacaoId, cenario, ano])
+}
+
+// Impacto no caixa (Fase 5) — independente do cenário de repasse (ver
+// CLAUDE.md: `calcularImpactoCaixa` não depende de `cenarioRepasse`), por
+// isso é uma linha por (simulação, ano), não por (simulação, cenário, ano).
+// Espelha ImpactoCaixaAno (src/lib/motor.ts). Ausente quando a simulação não
+// tinha `prazoPagamentoFornecedorDias`/`custoCompra` suficientes para calcular.
+model ImpactoCaixaAnual {
+  id                   String    @id @default(cuid())
+  simulacaoId          String
+  simulacao            Simulacao @relation(fields: [simulacaoId], references: [id], onDelete: Cascade)
+  ano                  Int
+  valorProtegido       Decimal   @db.Decimal(12, 2)
+  valorEmRisco         Decimal   @db.Decimal(12, 2)
   mensagemRecomendacao String?
 
   @@unique([simulacaoId, ano])

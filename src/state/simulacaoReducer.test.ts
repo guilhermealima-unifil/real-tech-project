@@ -7,6 +7,15 @@ const RESULTADO_FICTICIO: SimulationResult = {
   ramo: null,
   formulaTipo: "multiplicador",
   custoCompra: 100,
+  entradaSnapshot: {
+    despesaFixaPct: 20,
+    markupPct: null,
+    margemAlvoPct: 35,
+    margemMinimaPct: 30,
+    tetoPracaMin: null,
+    tetoPracaMax: null,
+    prazoPagamentoFornecedorDias: 30,
+  },
 };
 
 describe("simulacaoReducer — contrato de progressão do wizard (regressão: pular a Etapa Mercado)", () => {

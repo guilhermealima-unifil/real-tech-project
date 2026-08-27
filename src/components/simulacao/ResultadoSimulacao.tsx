@@ -7,6 +7,7 @@ import { FaixaViavelChart } from "@/components/FaixaViavelChart";
 import { ImpactoCaixaChart } from "@/components/ImpactoCaixaChart";
 import { ResumoResultado } from "./ResumoResultado";
 import { AnaliseDesconto } from "./AnaliseDesconto";
+import { SalvarSimulacao } from "./SalvarSimulacao";
 
 const CENARIOS: { valor: CenarioRepasse; rotulo: string }[] = [
   { valor: "integral", rotulo: "Repasse integral" },
@@ -69,7 +70,8 @@ export function ResultadoSimulacao() {
         <p className="text-text-secondary">
           {resultado.ramo ? resultado.ramo.rotulo : "Resultado da simulação"}
         </p>
-        <div className="flex items-center gap-4 text-xs font-medium text-text-secondary">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs font-medium text-text-secondary">
+          <SalvarSimulacao resultado={resultado} />
           <button
             type="button"
             onClick={() => irParaEtapa("operacao")}

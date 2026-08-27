@@ -164,6 +164,20 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
       state.form.prazoPagamentoFornecedorDias,
     );
     const parametrosDoSubmit = state.catalogo.parametros;
+    // Snapshot das entradas de margem/teto para o histórico (ver
+    // SimulationResult.entradaSnapshot) — reaproveita `corpo`, a mesma
+    // conversão form → payload já usada para validar/simular acima, em vez
+    // de reler state.form (evita divergir da regra de montarEntradaBruta
+    // que usa markupPct como margemAlvoPct quando formulaTipo é "markup").
+    const entradaSnapshotDoSubmit = {
+      despesaFixaPct: corpo.despesaFixaPct ?? null,
+      markupPct: corpo.markupPct ?? null,
+      margemAlvoPct: corpo.margemAlvoPct,
+      margemMinimaPct: corpo.margemMinimaPct,
+      tetoPracaMin: corpo.tetoPracaMin ?? null,
+      tetoPracaMax: corpo.tetoPracaMax ?? null,
+      prazoPagamentoFornecedorDias: prazoPagamentoFornecedorDiasDoSubmit ?? null,
+    };
 
     // simular() roda no cliente e é síncrono/rápido (µs) — sem este yield,
     // o React nunca chegaria a pintar "Calculando…" antes do cálculo já ter
@@ -202,15 +216,24 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
           cenarios: resultado.cenarios,
           impactoCaixa,
           ramo: ramoDoSubmit
-            ? { rotulo: ramoDoSubmit.rotulo, aliquotaSugerida: ramoDoSubmit.aliquotaSugerida }
+            ? {
+                id: ramoDoSubmit.id,
+                rotulo: ramoDoSubmit.rotulo,
+                aliquotaSugerida: ramoDoSubmit.aliquotaSugerida,
+              }
             : null,
           formulaTipo: formulaTipoDoSubmit,
-          // custoCompraDoSubmit é garantido definido aqui: se estivesse
-          // vazio/inválido, validarEntradaSimulacao (dentro de
-          // simularTresCenarios) já teria retornado ok:false antes deste
-          // ponto — mesmo padrão de asserção já usado em motor.ts para
-          // campos validados upstream.
+          // custoCompraDoSubmit/margemAlvoPct/margemMinimaPct são garantidos
+          // definidos aqui: se estivessem vazios/inválidos,
+          // validarEntradaSimulacao (dentro de simularTresCenarios) já teria
+          // retornado ok:false antes deste ponto — mesmo padrão de asserção
+          // já usado em motor.ts para campos validados upstream.
           custoCompra: custoCompraDoSubmit as number,
+          entradaSnapshot: {
+            ...entradaSnapshotDoSubmit,
+            margemAlvoPct: entradaSnapshotDoSubmit.margemAlvoPct as number,
+            margemMinimaPct: entradaSnapshotDoSubmit.margemMinimaPct as number,
+          },
         },
       });
     } catch (erro) {
