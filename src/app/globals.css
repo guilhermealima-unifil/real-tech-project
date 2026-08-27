@@ -18,9 +18,17 @@
   --border: #e2ded4;
   --text-primary: #18171c;
   --text-secondary: #58554d;
-  --muted: #8d897e;
+  /* #736f65 (era #8d897e) — o tom original ficava em 3.18:1 contra
+     --background, abaixo do mínimo AA de 4.5:1 para texto pequeno
+     (text-xs é usado em rótulos como "Preço analisado"); este passa em
+     4.56:1. Medido com a fórmula de luminância relativa do WCAG. */
+  --muted: #736f65;
   --primary: #0f4c57;
-  --success: #1f8a5f;
+  /* #1c7f57 (era #1f8a5f) — o tom original ficava em 4.32:1 contra
+     --surface (usado em "Simulação salva", text-xs), abaixo do mínimo AA
+     de 4.5:1; este passa em 4.97:1 contra --surface e 4.53:1 contra
+     --background. */
+  --success: #1c7f57;
   --warning: #a6690a;
   --danger: #b02e26;
   --focus: #0f4c57;
@@ -35,7 +43,9 @@
     --border: #2c2a30;
     --text-primary: #f3f1ea;
     --text-secondary: #a8a49b;
-    --muted: #6e6a62;
+    /* #847f75 (era #6e6a62) — mesmo motivo do claro: 3.35:1 contra
+       --surface, abaixo do mínimo AA; este passa em 4.52:1. */
+    --muted: #847f75;
     --primary: #4fb6ae;
     --success: #3fbe83;
     --warning: #e0a83d;

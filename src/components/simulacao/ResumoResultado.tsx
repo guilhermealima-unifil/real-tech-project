@@ -42,9 +42,9 @@ export function ResumoResultado({ resultado }: ResumoResultadoProps) {
   return (
     <section className="shadow-elevated rounded-xl bg-surface-elevated p-6 sm:p-10">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-xs font-medium uppercase tracking-wide text-primary">
+        <h2 className="text-xs font-medium uppercase tracking-wide text-primary">
           Preço recomendado · {resultado.ano}
-        </p>
+        </h2>
         <span
           className={`inline-block shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${ROTULO_STATUS[status].classe}`}
         >

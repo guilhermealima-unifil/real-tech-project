@@ -18,10 +18,10 @@ export default function Home() {
   return (
     <>
       <header>
-        <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
+        <h1 className="text-2xl font-semibold tracking-tight text-text-primary">
           Real Tech — faixa viável de preço na transição IBS/CBS
         </h1>
-        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+        <p className="mt-1 text-sm text-text-secondary">
           Custo, margem mínima e preço da praça: onde seu preço pode viver em
           cada ano, de 2026 a 2033.
         </p>
@@ -30,7 +30,7 @@ export default function Home() {
       {emResultado ? <ResultadoSimulacao /> : <SimulacaoWizard />}
 
       {parametrosInfo && (
-        <footer className="text-xs text-zinc-500 dark:text-zinc-400">
+        <footer className="text-xs text-muted">
           Parâmetros tributários vigentes desde{" "}
           {new Date(parametrosInfo.vigencia).toLocaleDateString("pt-BR")} —{" "}
           {parametrosInfo.fonte}
