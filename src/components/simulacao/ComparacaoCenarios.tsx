@@ -1,9 +1,11 @@
 import type { ReactNode } from "react";
 import { classificarStatusPreco, type StatusPreco } from "@/lib/analiseResultado";
+import { construirEvidenciasComparacao } from "@/lib/evidenciasComparacao";
 import { formatarPct, formatarReais } from "@/lib/frases";
 import type { CenarioRepasse, ResultadoAno } from "@/lib/motor";
 import { resumirCenario, type ResumoCenario } from "@/lib/resumoCenario";
 import { CardCenario } from "./CardCenario";
+import { LeituraComparacao } from "./LeituraComparacao";
 import { CENARIOS } from "./SeletorEstrategiaRepasse";
 
 interface ComparacaoCenariosProps {
@@ -105,15 +107,19 @@ export function ComparacaoCenarios({
   margemMinimaFracao,
 }: ComparacaoCenariosProps) {
   if (cenarioIrrelevante) {
+    const evidencias = construirEvidenciasComparacao(cenarios, anoSelecionado, margemMinimaFracao);
     return (
-      <div className="rounded-xl border border-border bg-surface p-6 text-sm sm:p-8">
-        <p className="font-medium text-text-primary">
-          Neste modelo, as estratégias de repasse não alteram o preço calculado.
-        </p>
-        <p className="mt-2 text-text-secondary">
-          Integral, Gradual e Absorção produzem a mesma trajetória no markup atual, pois o preço é
-          definido pelo markup aplicado ao custo.
-        </p>
+      <div className="w-full space-y-5">
+        <div className="rounded-xl border border-border bg-surface p-6 text-sm sm:p-8">
+          <p className="font-medium text-text-primary">
+            Neste modelo, as estratégias de repasse não alteram o preço calculado.
+          </p>
+          <p className="mt-2 text-text-secondary">
+            Integral, Gradual e Absorção produzem a mesma trajetória no markup atual, pois o preço é
+            definido pelo markup aplicado ao custo.
+          </p>
+        </div>
+        <LeituraComparacao evidencias={evidencias} />
       </div>
     );
   }
@@ -230,6 +236,10 @@ export function ComparacaoCenarios({
           ))}
         />
       </section>
+
+      <LeituraComparacao
+        evidencias={construirEvidenciasComparacao(cenarios, anoSelecionado, margemMinimaFracao)}
+      />
 
       <section aria-labelledby="riscos-cenarios-titulo">
         <h2 id="riscos-cenarios-titulo" className="text-sm font-semibold text-text-primary">
