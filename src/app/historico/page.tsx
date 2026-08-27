@@ -1,17 +1,14 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getUsuarioAutenticado } from "@/lib/auth/dal";
-import { listarSimulacoesDoUsuario, type SimulacaoResumo } from "@/lib/historico";
+import {
+  listarSimulacoesDoUsuario,
+  nomeExibicaoSimulacao,
+  ROTULO_STATUS_PRECO,
+  type SimulacaoResumo,
+} from "@/lib/historico";
 import { formatarReais } from "@/lib/frases";
 import type { CenarioRepasse } from "@/lib/motor";
-import type { StatusPreco } from "@/lib/analiseResultado";
-
-const ROTULO_STATUS: Record<StatusPreco, { rotulo: string; classe: string }> = {
-  abaixo_piso: { rotulo: "Abaixo do piso", classe: "bg-danger/10 text-danger" },
-  dentro_da_faixa: { rotulo: "Dentro da faixa viável", classe: "bg-success/10 text-success" },
-  acima_teto: { rotulo: "Acima do teto da praça", classe: "bg-warning/10 text-warning" },
-  faixa_inviavel: { rotulo: "Faixa inviável", classe: "bg-danger/10 text-danger" },
-};
 
 // Mesmos rótulos de CENARIOS em ResultadoSimulacao.tsx/DetalheSimulacaoSalva.tsx
 // — "integral"/"gradual"/"absorcao" são nomes de código, não texto para o
@@ -31,21 +28,22 @@ const FORMATADOR_DATA = new Intl.DateTimeFormat("pt-BR", {
 });
 
 function ItemHistorico({ item }: { item: SimulacaoResumo }) {
-  const status = item.status ? ROTULO_STATUS[item.status] : null;
+  const status = item.status ? ROTULO_STATUS_PRECO[item.status] : null;
   const dataFormatada = FORMATADOR_DATA.format(new Date(item.createdAt));
+  const nome = nomeExibicaoSimulacao(item.nomeProduto, item.ramoRotulo);
   const ramo = item.ramoRotulo ?? "Ramo não informado";
 
   return (
     <li>
       <Link
         href={`/historico/${item.id}`}
-        aria-label={`Ver simulação: ${ramo}, salva em ${dataFormatada}`}
+        aria-label={`Ver simulação: ${nome}, salva em ${dataFormatada}`}
         className="flex flex-col gap-3 rounded-xl border border-border bg-surface p-5 transition-colors hover:border-text-secondary sm:flex-row sm:items-center sm:justify-between"
       >
         <div className="min-w-0">
-          <p className="text-sm font-medium text-text-primary">{ramo}</p>
+          <p className="truncate text-sm font-semibold text-text-primary">{nome}</p>
           <p className="mt-0.5 break-words text-xs text-text-secondary">
-            {dataFormatada} · Custo R$ {formatarReais(item.custoCompra)} ·{" "}
+            {ramo} · {dataFormatada} · Custo R$ {formatarReais(item.custoCompra)} ·{" "}
             {item.formulaTipo === "markup" ? "Markup" : "Multiplicador"}
             {item.anoPrincipal !== null &&
               ` · ${ROTULO_CENARIO[item.cenarioPrincipal]} ${item.anoPrincipal}`}
@@ -106,7 +104,7 @@ export default async function HistoricoPage() {
         <div className="flex flex-col items-center gap-4 rounded-xl border border-border bg-surface p-10 text-center">
           <p className="text-sm text-text-secondary">Você ainda não salvou nenhuma simulação.</p>
           <Link
-            href="/"
+            href="/simulador"
             className="rounded-lg bg-text-primary px-6 py-2.5 text-sm font-medium text-background transition-opacity hover:opacity-90"
           >
             Fazer uma simulação

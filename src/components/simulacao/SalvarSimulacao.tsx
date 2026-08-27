@@ -3,8 +3,10 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useAuth } from "@/state/AuthProvider";
+import { useSimulation } from "@/state/SimulationProvider";
 import type { SimulationResult } from "@/state/simulacaoReducer";
 import { montarPayloadSimulacaoSalva } from "@/lib/simulacoesCliente";
+import { DialogSalvarSimulacao } from "./DialogSalvarSimulacao";
 
 interface SalvarSimulacaoProps {
   resultado: SimulationResult;
@@ -15,22 +17,22 @@ type EstadoSalvamento = "idle" | "salvando" | "salvo" | "erro";
 /**
  * Ação "Salvar simulação" (histórico). Deslogado: CTA para /login, sem
  * bloquear o resultado (ver CLAUDE.md desta etapa). Autenticado: botão que
- * faz POST /api/simulacoes com o SNAPSHOT já pronto em
- * `resultado` (nunca `state.form`) — ver src/lib/simulacoesCliente.ts.
+ * abre o dialog "Salvar simulação" (DialogSalvarSimulacao) para coletar o
+ * nome do produto/serviço antes de fazer POST /api/simulacoes — o resto do
+ * payload continua vindo do SNAPSHOT já pronto em `resultado` (nunca
+ * `state.form`) — ver src/lib/simulacoesCliente.ts. `nomeProduto` é a
+ * única exceção: não pertence ao motor nem ao snapshot da simulação (ver
+ * CLAUDE.md desta etapa), por isso chega separado, só no momento de
+ * confirmar o dialog.
  *
- * Double-submit: só client-side (`estado !== "idle"` desabilita o botão
- * durante o próprio clique; uma vez "salvo", o botão é substituído pela
- * confirmação — não há como clicar de novo no mesmo componente; um novo
- * resultado desmonta esta instância inteira junto com <ResultadoSimulacao>,
- * então "salvo" nunca vaza para outra simulação). Deliberadamente SEM
- * idempotência no backend (ver etapa de polimento, "IDEMPOTÊNCIA"): a
- * única forma seria uma chave persistida (nova coluna + índice único em
- * `Simulacao`), que exige migration — fora do escopo desta etapa
- * ("NÃO ALTERE... migrations, salvo bug crítico real"). Risco residual:
- * um duplo POST feito por fora desta UI (ex.: replay de rede bem no
- * instante entre clique e desabilitar) poderia, em teoria, criar 2 linhas;
- * não observado na prática porque o `disabled` já cobre o caminho real do
- * usuário (clique/Enter). Pendência explícita, não bloqueante para o MVP.
+ * Double-submit: só client-side (`estado !== "idle"` desabilita os botões
+ * do dialog durante o próprio clique; uma vez "salvo", botão e dialog são
+ * substituídos pela confirmação — não há como clicar de novo no mesmo
+ * componente; um novo resultado desmonta esta instância inteira junto com
+ * <ResultadoSimulacao>, então "salvo" nunca vaza para outra simulação).
+ * Deliberadamente SEM idempotência no backend (ver etapa de polimento,
+ * "IDEMPOTÊNCIA") — pendência já registrada antes desta etapa, não
+ * reaberta aqui.
  *
  * `aria-live="polite"` no texto de status: o clique não recarrega a
  * página nem move o foco, então "Salvando…" → "Simulação salva" (ou um
@@ -39,6 +41,8 @@ type EstadoSalvamento = "idle" | "salvando" | "salvo" | "erro";
  */
 export function SalvarSimulacao({ resultado }: SalvarSimulacaoProps) {
   const { status } = useAuth();
+  const { state } = useSimulation();
+  const [dialogAberto, setDialogAberto] = useState(false);
   const [estado, setEstado] = useState<EstadoSalvamento>("idle");
   const [simulacaoId, setSimulacaoId] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
@@ -56,10 +60,17 @@ export function SalvarSimulacao({ resultado }: SalvarSimulacaoProps) {
     );
   }
 
-  async function aoSalvar() {
+  // Contexto resumido do dialog — o mesmo ano/cenário que o usuário está
+  // vendo em NavegacaoAnalise agora, só para exibição (não persistido como
+  // parte do nome nem de nenhum outro campo).
+  const resultadoSelecionado =
+    resultado.cenarios[state.ui.cenarioSelecionado]?.find((r) => r.ano === state.ui.anoSelecionado) ??
+    null;
+
+  async function aoConfirmarNome(nomeProduto: string) {
     if (estado === "salvando" || estado === "salvo") return; // impede double-submit
 
-    const payload = montarPayloadSimulacaoSalva(resultado);
+    const payload = montarPayloadSimulacaoSalva(resultado, nomeProduto);
     if (!payload) {
       setEstado("erro");
       setErro("Não foi possível identificar o ramo desta simulação.");
@@ -80,15 +91,20 @@ export function SalvarSimulacao({ resultado }: SalvarSimulacaoProps) {
       if (!resposta.ok) {
         setEstado("erro");
         setErro(corpo.erros?.[0] ?? "Não foi possível salvar a simulação.");
-        return;
+        return; // dialog continua aberto — não perde o nome já digitado
       }
 
       setSimulacaoId(corpo.id);
       setEstado("salvo");
+      setDialogAberto(false);
     } catch {
       setEstado("erro");
       setErro("Não foi possível conectar ao servidor. Verifique sua conexão e tente novamente.");
     }
+  }
+
+  function aoCancelarDialog() {
+    setDialogAberto(false); // descarta o nome digitado; não toca `estado`/resultado/cenário/ano
   }
 
   if (estado === "salvo") {
@@ -108,13 +124,22 @@ export function SalvarSimulacao({ resultado }: SalvarSimulacaoProps) {
     <span aria-live="polite" className="flex items-center gap-2">
       <button
         type="button"
-        onClick={aoSalvar}
-        disabled={estado === "salvando"}
-        className="text-xs font-medium text-text-secondary underline-offset-2 hover:text-text-primary hover:underline disabled:opacity-50"
+        onClick={() => setDialogAberto(true)}
+        className="text-xs font-medium text-text-secondary underline-offset-2 hover:text-text-primary hover:underline"
       >
-        {estado === "salvando" ? "Salvando…" : "Salvar simulação"}
+        Salvar simulação
       </button>
-      {estado === "erro" && erro && <span className="text-xs text-danger">{erro}</span>}
+
+      {dialogAberto && (
+        <DialogSalvarSimulacao
+          ramoRotulo={resultado.ramo?.rotulo ?? null}
+          precoAnalisado={resultadoSelecionado?.preco ?? null}
+          salvando={estado === "salvando"}
+          erro={estado === "erro" ? erro : null}
+          onCancelar={aoCancelarDialog}
+          onConfirmar={aoConfirmarNome}
+        />
+      )}
     </span>
   );
 }

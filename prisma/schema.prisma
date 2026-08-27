@@ -52,6 +52,17 @@ model Simulacao {
   user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   rotulo    String? // legado (Fase pré-histórico) — o fluxo atual não coleta rótulo, fica sempre null.
 
+  // Nome do produto/serviço que o usuário está precificando (ex.:
+  // "Geladeira Electrolux 480L") — coletado só na hora de salvar (ver
+  // CLAUDE.md desta etapa), nunca durante o wizard/motor. Opcional no banco
+  // de propósito: simulações salvas antes desta etapa (e as 2 de seed) não
+  // têm esse dado e continuam válidas; a exibição usa um fallback derivado
+  // do ramo quando é null (ver src/lib/historico.ts, nomeExibicaoSimulacao).
+  // A UI atual (POST /api/simulacoes) sempre exige um valor não vazio para
+  // simulações NOVAS — a obrigatoriedade é de validação de aplicação, não
+  // de schema.
+  nomeProduto String?
+
   // Snapshot de exibição do ramo no momento da simulação — não depende de
   // uma leitura futura de `Ramo` (ver CLAUDE.md, seção "SNAPSHOT" desta
   // etapa): se o rótulo/alíquota sugerida do ramo mudar depois, o

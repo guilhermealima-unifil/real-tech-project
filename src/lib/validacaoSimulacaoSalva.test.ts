@@ -20,6 +20,7 @@ function payloadValido() {
     ramoId: "ramo-1",
     ramoRotulo: "Eletrodomésticos e móveis",
     ramoAliquotaSugerida: 26.5,
+    nomeProduto: "Geladeira Electrolux 480L",
     formulaTipo: "multiplicador",
     custoCompra: 100,
     despesaFixaPct: 20,
@@ -160,5 +161,53 @@ describe("validarEntradaSimulacaoSalva", () => {
       prazoPagamentoFornecedorDias: null,
     });
     expect(resultado.ok).toBe(true);
+  });
+
+  describe("nomeProduto", () => {
+    it("aceita um nome válido e o devolve já aparado (trim)", () => {
+      const resultado = validarEntradaSimulacaoSalva({
+        ...payloadValido(),
+        nomeProduto: "  Geladeira Electrolux 480L  ",
+      });
+      expect(resultado.ok).toBe(true);
+      if (resultado.ok) {
+        expect(resultado.entrada.nomeProduto).toBe("Geladeira Electrolux 480L");
+      }
+    });
+
+    it("rejeita nomeProduto ausente", () => {
+      const payload = payloadValido();
+      // @ts-expect-error -- teste de payload inválido
+      delete payload.nomeProduto;
+      const resultado = validarEntradaSimulacaoSalva(payload);
+      expect(resultado.ok).toBe(false);
+      if (!resultado.ok) {
+        expect(resultado.erros.some((e) => e.startsWith("nomeProduto"))).toBe(true);
+      }
+    });
+
+    it("rejeita nomeProduto vazio ou só espaços", () => {
+      expect(validarEntradaSimulacaoSalva({ ...payloadValido(), nomeProduto: "" }).ok).toBe(false);
+      expect(validarEntradaSimulacaoSalva({ ...payloadValido(), nomeProduto: "   " }).ok).toBe(false);
+    });
+
+    it("rejeita nomeProduto acima do limite de caracteres", () => {
+      const resultado = validarEntradaSimulacaoSalva({
+        ...payloadValido(),
+        nomeProduto: "x".repeat(121),
+      });
+      expect(resultado.ok).toBe(false);
+      if (!resultado.ok) {
+        expect(resultado.erros.some((e) => e.includes("120"))).toBe(true);
+      }
+    });
+
+    it("aceita nomeProduto exatamente no limite de 120 caracteres", () => {
+      const resultado = validarEntradaSimulacaoSalva({
+        ...payloadValido(),
+        nomeProduto: "x".repeat(120),
+      });
+      expect(resultado.ok).toBe(true);
+    });
   });
 });

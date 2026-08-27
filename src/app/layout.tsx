@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { AuthProvider } from "@/state/AuthProvider";
 import { SimulationProvider } from "@/state/SimulationProvider";
-import { Header } from "@/components/shell/Header";
+import { AppShell } from "@/components/shell/AppShell";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -21,12 +21,15 @@ export const metadata: Metadata = {
 };
 
 /**
- * Shell global: Header + coluna de conteúdo com largura máxima e gutters
- * consistentes (ver docs/06-design-system.md). SimulationProvider mora aqui
- * (não mais em page.tsx) porque o Header precisa do mesmo estado
- * compartilhado — ex. saber quando mostrar "Nova simulação". Isso não é uma
- * segunda instância de estado: é a mesma árvore, só com o provider um nível
- * acima.
+ * Shell global: AppShell decide entre a navegação completa (Sidebar
+ * desktop + BottomNav mobile) e as telas de entrada sem navegação
+ * (login/cadastro) — ver src/components/shell/AppShell.tsx. Substituiu o
+ * antigo Header horizontal (ver CLAUDE.md desta etapa, Parte 11).
+ * SimulationProvider continua aqui, não em simulador/page.tsx (decisão de
+ * etapas anteriores, não revisitada agora) — nenhum componente do shell
+ * novo (Sidebar/BottomNav/MenuUsuario) precisa desse estado, só o
+ * simulador em si; mantê-lo no layout evita reintroduzir o provider mais
+ * abaixo sem necessidade.
  *
  * AuthProvider é irmão de SimulationProvider, por fora — autenticação e
  * simulação são estados independentes (o simulador continua público e
@@ -38,13 +41,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="pt-BR"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">
+      <body className="min-h-full">
         <AuthProvider>
           <SimulationProvider>
-            <Header />
-            <main className="mx-auto flex w-full max-w-[840px] flex-1 flex-col gap-8 px-6 py-10">
-              {children}
-            </main>
+            <AppShell>{children}</AppShell>
           </SimulationProvider>
         </AuthProvider>
       </body>

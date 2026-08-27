@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getUsuarioAutenticado } from "@/lib/auth/dal";
-import { buscarSimulacaoDoUsuario } from "@/lib/historico";
+import { buscarSimulacaoDoUsuario, nomeExibicaoSimulacao } from "@/lib/historico";
 import { DetalheSimulacaoSalva } from "@/components/historico/DetalheSimulacaoSalva";
 
 const FORMATADOR_DATA = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" });
@@ -24,7 +24,11 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 
   const { id } = await params;
   const simulacao = await buscarSimulacaoDoUsuario(id, usuario.id);
-  return { title: simulacao ? `${simulacao.ramoRotulo ?? "Simulação salva"} — Real Tech` : "Histórico — Real Tech" };
+  return {
+    title: simulacao
+      ? `${nomeExibicaoSimulacao(simulacao.nomeProduto, simulacao.ramoRotulo)} — Real Tech`
+      : "Histórico — Real Tech",
+  };
 }
 
 export default async function HistoricoDetalhePage({
@@ -53,8 +57,11 @@ export default async function HistoricoDetalhePage({
           ← Voltar ao histórico
         </Link>
         <h1 className="mt-2 text-2xl font-semibold tracking-tight text-text-primary">
-          {simulacao.ramoRotulo ?? "Simulação salva"}
+          {nomeExibicaoSimulacao(simulacao.nomeProduto, simulacao.ramoRotulo)}
         </h1>
+        <p className="mt-1 text-sm text-text-secondary">
+          {simulacao.ramoRotulo ?? "Ramo não informado"}
+        </p>
         <p className="mt-1 text-sm text-text-secondary">
           Simulação salva em {FORMATADOR_DATA.format(new Date(simulacao.createdAt))}. Os valores abaixo
           são os que você viu naquele momento.

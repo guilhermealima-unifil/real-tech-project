@@ -18,11 +18,25 @@ const ANO_MAX = 2200;
 const MAX_ANOS_POR_CENARIO = 50; // generoso acima dos 8 anos reais (2026-2033) — só um teto defensivo
 const MAX_TAMANHO_MENSAGEM = 2000;
 const MAX_TAMANHO_ROTULO = 200;
+// Nome do produto/serviço (ver CLAUDE.md desta etapa) — um rótulo curto
+// como "Geladeira Electrolux 480L", não uma descrição longa; 120
+// caracteres é folgado para isso sem abrir espaço para texto livre grande.
+// Mesmo limite usado pelo frontend (src/lib/simulacoesCliente.ts) — o
+// backend continua sendo a fonte de verdade, essa constante só evita que
+// as duas pontas divirjam por acidente.
+export const MAX_TAMANHO_NOME_PRODUTO = 120;
 
 export interface EntradaSimulacaoSalva {
   ramoId: string;
   ramoRotulo: string;
   ramoAliquotaSugerida: number;
+  /**
+   * Obrigatório para simulações NOVAS salvas pela UI — nullable só no
+   * schema do banco (Simulacao.nomeProduto), para não invalidar
+   * simulações salvas antes desta etapa. Esta validação (aplicação, não
+   * schema) é o que garante que todo registro novo tenha nome.
+   */
+  nomeProduto: string;
   formulaTipo: FormulaTipo;
   custoCompra: number;
   despesaFixaPct: number | null;
@@ -176,6 +190,22 @@ export function validarEntradaSimulacaoSalva(body: unknown): ResultadoValidacaoS
   const ramoId = textoNaoVazio(b.ramoId, 100) ? b.ramoId : undefined;
   if (!ramoId) erros.push("ramoId é obrigatório.");
 
+  // Trim antes de validar/gravar: " Geladeira " e "Geladeira" são o mesmo
+  // nome — o espaço em volta não deveria nem contar para o limite nem virar
+  // parte do registro salvo.
+  const nomeProdutoBruto = typeof b.nomeProduto === "string" ? b.nomeProduto.trim() : "";
+  const nomeProduto =
+    nomeProdutoBruto.length > 0 && nomeProdutoBruto.length <= MAX_TAMANHO_NOME_PRODUTO
+      ? nomeProdutoBruto
+      : undefined;
+  if (!nomeProduto) {
+    erros.push(
+      nomeProdutoBruto.length > MAX_TAMANHO_NOME_PRODUTO
+        ? `nomeProduto deve ter no máximo ${MAX_TAMANHO_NOME_PRODUTO} caracteres.`
+        : "nomeProduto é obrigatório.",
+    );
+  }
+
   const ramoRotulo = textoNaoVazio(b.ramoRotulo, MAX_TAMANHO_ROTULO) ? b.ramoRotulo : undefined;
   if (!ramoRotulo) erros.push("ramoRotulo é obrigatório.");
 
@@ -275,6 +305,7 @@ export function validarEntradaSimulacaoSalva(body: unknown): ResultadoValidacaoS
       ramoId: ramoId as string,
       ramoRotulo: ramoRotulo as string,
       ramoAliquotaSugerida: ramoAliquotaSugerida as number,
+      nomeProduto: nomeProduto as string,
       formulaTipo: formulaTipo as FormulaTipo,
       custoCompra: custoCompra as number,
       despesaFixaPct: despesaFixaPctResultado.ok ? despesaFixaPctResultado.valor : null,

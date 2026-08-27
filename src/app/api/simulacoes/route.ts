@@ -55,6 +55,7 @@ export async function POST(request: Request) {
       ramoId: entrada.ramoId,
       ramoRotulo: entrada.ramoRotulo,
       ramoAliquotaSugerida: entrada.ramoAliquotaSugerida,
+      nomeProduto: entrada.nomeProduto,
       formulaTipo: entrada.formulaTipo,
       custoCompra: entrada.custoCompra,
       despesaFixaPct: entrada.despesaFixaPct,

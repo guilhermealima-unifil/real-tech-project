@@ -119,6 +119,7 @@ async function payloadValido() {
     ramoId: ramo.id,
     ramoRotulo: ramo.rotulo,
     ramoAliquotaSugerida: Number(ramo.aliquotaSugerida),
+    nomeProduto: "Geladeira Electrolux 480L",
     formulaTipo: "multiplicador" as const,
     custoCompra: 100,
     despesaFixaPct: 20,
@@ -172,6 +173,24 @@ describe("POST /api/simulacoes", () => {
     expect(resposta.status).toBe(400);
   });
 
+  it("rejeita nomeProduto ausente ou vazio (400), sem criar nada", async () => {
+    const usuario = await registrarUsuario("post-sem-nome");
+    autenticarComo(usuario.token);
+
+    const payload = await payloadValido();
+    // @ts-expect-error -- propositalmente omitindo um campo obrigatório
+    delete payload.nomeProduto;
+    const antes = await prisma.simulacao.count({ where: { userId: usuario.id } });
+    const resposta = await criarSimulacao(postJson("http://localhost/api/simulacoes", payload));
+    const depois = await prisma.simulacao.count({ where: { userId: usuario.id } });
+    expect(resposta.status).toBe(400);
+    expect(depois).toBe(antes);
+
+    const payload2 = { ...(await payloadValido()), nomeProduto: "   " };
+    const resposta2 = await criarSimulacao(postJson("http://localhost/api/simulacoes", payload2));
+    expect(resposta2.status).toBe(400);
+  });
+
   it("salva o snapshot exatamente como enviado — sem recalcular — e não vaza segredos", async () => {
     const usuario = await registrarUsuario("post-ok");
     autenticarComo(usuario.token);
@@ -197,6 +216,7 @@ describe("POST /api/simulacoes", () => {
     expect(detalheBody.simulacao.cenarios.absorcao).toEqual([resultadoAno(2026)]);
     expect(detalheBody.simulacao.custoCompra).toBe(100);
     expect(detalheBody.simulacao.ramoRotulo).toBe(payload.ramoRotulo);
+    expect(detalheBody.simulacao.nomeProduto).toBe(payload.nomeProduto);
   });
 });
 
@@ -232,6 +252,20 @@ describe("GET /api/simulacoes", () => {
     const idsListaB: string[] = listaB.simulacoes.map((s: { id: string }) => s.id);
     expect(idsListaB).toContain(simB.id);
     expect(idsListaB).not.toContain(simA.id);
+  });
+
+  it("devolve nomeProduto de cada simulação na listagem", async () => {
+    const usuario = await registrarUsuario("list-nome");
+    autenticarComo(usuario.token);
+
+    const payload = { ...(await payloadValido()), nomeProduto: "Notebook Lenovo ThinkPad" };
+    const resposta = await criarSimulacao(postJson("http://localhost/api/simulacoes", payload));
+    const sim = await resposta.json();
+    createdSimulacaoIds.push(sim.id);
+
+    const lista = await (await listarSimulacoes()).json();
+    const item = lista.simulacoes.find((s: { id: string }) => s.id === sim.id);
+    expect(item.nomeProduto).toBe("Notebook Lenovo ThinkPad");
   });
 });
 
@@ -273,5 +307,42 @@ describe("GET /api/simulacoes/[id]", () => {
       params: Promise.resolve({ id: simA.id as string }),
     });
     expect(comoDono.status).toBe(200);
+  });
+});
+
+describe("Registros antigos sem nomeProduto", () => {
+  it("uma simulação salva antes desta etapa (nomeProduto null no banco) continua carregando normalmente", async () => {
+    const usuario = await registrarUsuario("legado-sem-nome");
+    autenticarComo(usuario.token);
+    const ramo = await prisma.ramo.findFirstOrThrow({ where: { entraNoMvp: true } });
+
+    // Cria direto via Prisma (não via POST /api/simulacoes, que exige
+    // nomeProduto) para simular uma linha salva antes desta etapa — ou as
+    // 2 de seed, que também nunca tiveram esse campo.
+    const legado = await prisma.simulacao.create({
+      data: {
+        userId: usuario.id,
+        ramoId: ramo.id,
+        ramoRotulo: ramo.rotulo,
+        formulaTipo: "multiplicador",
+        custoCompra: 100,
+        margemAlvoPct: 35,
+        margemMinimaPct: 30,
+      },
+      select: { id: true },
+    });
+    createdSimulacaoIds.push(legado.id);
+
+    const detalhe = await buscarSimulacao(getReq(`http://localhost/api/simulacoes/${legado.id}`), {
+      params: Promise.resolve({ id: legado.id }),
+    });
+    expect(detalhe.status).toBe(200);
+    const detalheBody = await detalhe.json();
+    expect(detalheBody.simulacao.nomeProduto).toBeNull();
+    expect(detalheBody.simulacao.ramoRotulo).toBe(ramo.rotulo);
+
+    const lista = await (await listarSimulacoes()).json();
+    const item = lista.simulacoes.find((s: { id: string }) => s.id === legado.id);
+    expect(item.nomeProduto).toBeNull();
   });
 });

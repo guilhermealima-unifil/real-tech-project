@@ -34,6 +34,16 @@ import {
 } from "./simulacaoReducer";
 import { montarEntradaBruta, numOrUndefined } from "./validacaoEtapas";
 
+/**
+ * Resultado de `executarSimulacao`, além do que já muda em `state` via
+ * dispatch: o wizard ignora o retorno (só se importa com o efeito
+ * colateral no reducer), mas o painel de edição rápida
+ * (PainelEdicaoRapida) precisa saber, sem reler `state` de dentro do
+ * closure assíncrono (que ficaria desatualizado entre o await e o
+ * re-render), se deve fechar o painel e quais erros mostrar quando falha.
+ */
+export type ResultadoExecutarSimulacao = { ok: true } | { ok: false; erros: string[] };
+
 interface SimulationContextValue {
   state: SimulationState;
   atualizarCampoForm: <K extends keyof SimulationFormState>(
@@ -41,7 +51,17 @@ interface SimulationContextValue {
     valor: SimulationFormState[K],
   ) => void;
   carregarCasoReal: (form: SimulationFormState) => void;
-  executarSimulacao: () => Promise<void>;
+  /**
+   * `formOverride`, quando informado, é usado no lugar de `state.form` para
+   * montar e rodar a simulação — usado só pelo painel de edição rápida, que
+   * passa seu draft local diretamente em vez de esperar um dispatch prévio
+   * "aparecer" em `state.form` (dispatch é assíncrono; ler `state.form`
+   * logo em seguida, dentro do mesmo closure, ainda veria o valor antigo).
+   * Quando fornecido, o form global É atualizado para esse valor (Parte 6
+   * desta etapa: "atualizar os dados necessários do form"), só que a
+   * simulação em si nunca depende dessa atualização ter "chegado".
+   */
+  executarSimulacao: (formOverride?: SimulationFormState) => Promise<ResultadoExecutarSimulacao>;
   selecionarCenario: (cenario: CenarioRepasse) => void;
   selecionarAno: (ano: number) => void;
   alterarDescontoPedido: (percentual: number) => void;
@@ -146,22 +166,33 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
     dispatch({ type: "NOVA_SIMULACAO" });
   }, []);
 
-  const executarSimulacao = useCallback(async () => {
+  const executarSimulacao = useCallback(async (
+    formOverride?: SimulationFormState,
+  ): Promise<ResultadoExecutarSimulacao> => {
     dispatch({ type: "SIMULACAO_INICIADA" });
     const idRequisicao = (requisicaoIdRef.current += 1);
 
+    // `formAtivo` (não `state.form`) é a fonte de verdade do resto desta
+    // função — ver o comentário de `executarSimulacao` na interface acima
+    // sobre por que ler `state.form` depois de despachar FORM_SUBSTITUIDO
+    // não funcionaria aqui.
+    const formAtivo = formOverride ?? state.form;
+    if (formOverride) {
+      dispatch({ type: "FORM_SUBSTITUIDO", form: formOverride });
+    }
+
     // Mesma conversão form → payload usada pela validação de progressão do
     // wizard (src/state/validacaoEtapas.ts) — um único lugar.
-    const corpo = montarEntradaBruta(state.form);
+    const corpo = montarEntradaBruta(formAtivo);
     // Snapshot do que está sendo simulado, tirado antes do yield abaixo —
     // se o usuário mudar o form (ou clicar "carregar caso real") nesse
     // intervalo, o resultado ainda precisa refletir o que foi de fato
     // submetido, não o form ao vivo.
-    const ramoDoSubmit = state.catalogo.ramos.find((r) => r.id === state.form.ramoId) ?? null;
-    const formulaTipoDoSubmit = state.form.formulaTipo;
-    const custoCompraDoSubmit = numOrUndefined(state.form.custoCompra);
+    const ramoDoSubmit = state.catalogo.ramos.find((r) => r.id === formAtivo.ramoId) ?? null;
+    const formulaTipoDoSubmit = formAtivo.formulaTipo;
+    const custoCompraDoSubmit = numOrUndefined(formAtivo.custoCompra);
     const prazoPagamentoFornecedorDiasDoSubmit = numOrUndefined(
-      state.form.prazoPagamentoFornecedorDias,
+      formAtivo.prazoPagamentoFornecedorDias,
     );
     const parametrosDoSubmit = state.catalogo.parametros;
     // Snapshot das entradas de margem/teto para o histórico (ver
@@ -185,16 +216,19 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
     // cálculo, sem adicionar delay perceptível.
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    if (requisicaoIdRef.current !== idRequisicao) return; // invalidado enquanto esperava o paint
+    // Invalidado enquanto esperava o paint (ou obsoleto, mais abaixo): sem
+    // `erros` próprios — quem chamou já foi substituído por uma chamada
+    // mais nova, cujo próprio retorno é o que importa.
+    if (requisicaoIdRef.current !== idRequisicao) return { ok: false, erros: [] };
 
     try {
       const resultado = simularTresCenarios(corpo, parametrosDoSubmit);
 
-      if (requisicaoIdRef.current !== idRequisicao) return; // obsoleto, ignorar
+      if (requisicaoIdRef.current !== idRequisicao) return { ok: false, erros: [] }; // obsoleto, ignorar
 
       if (!resultado.ok) {
         dispatch({ type: "SIMULACAO_FALHOU", erros: resultado.erros });
-        return;
+        return { ok: false, erros: resultado.erros };
       }
 
       // Impacto no caixa (Fase 5) já rodava no cliente — sem mudança aqui,
@@ -236,10 +270,12 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
           },
         },
       });
+      return { ok: true };
     } catch (erro) {
-      if (requisicaoIdRef.current !== idRequisicao) return;
+      if (requisicaoIdRef.current !== idRequisicao) return { ok: false, erros: [] };
       const mensagem = erro instanceof Error ? erro.message : "Erro inesperado ao simular.";
       dispatch({ type: "SIMULACAO_FALHOU", erros: [mensagem] });
+      return { ok: false, erros: [mensagem] };
     }
   }, [state.form, state.catalogo.ramos, state.catalogo.parametros]);
 

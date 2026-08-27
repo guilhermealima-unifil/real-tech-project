@@ -157,6 +157,7 @@ export type SimulationAction =
       valor: SimulationFormState[keyof SimulationFormState];
     }
   | { type: "FORM_CASO_REAL_CARREGADO"; form: SimulationFormState }
+  | { type: "FORM_SUBSTITUIDO"; form: SimulationFormState }
   | { type: "SIMULACAO_INICIADA" }
   | { type: "SIMULACAO_CONCLUIDA"; resultado: SimulationResult }
   | { type: "SIMULACAO_FALHOU"; erros: string[] }
@@ -214,33 +215,71 @@ export function simulacaoReducer(
         ui: { ...state.ui, erros: [], descontoPedidoPct: 0 },
       };
 
+    // Edição rápida (Resultado → "Editar dados" → Recalcular, ver
+    // PainelEdicaoRapida): substitui só o form pelo draft já validado do
+    // painel, sem tocar em `resultado`/`ui` — ao contrário de
+    // FORM_CASO_REAL_CARREGADO (uma limpeza explícita de tela), aqui o
+    // objetivo é o oposto: manter tudo (resultado atual na tela,
+    // cenário/ano/erros) intacto enquanto o form alcança o draft.
+    // SIMULACAO_CONCLUIDA (abaixo) decide sozinho se preserva esse
+    // contexto quando a simulação terminar.
+    case "FORM_SUBSTITUIDO":
+      return { ...state, form: action.form };
+
     case "SIMULACAO_INICIADA":
       return { ...state, ui: { ...state.ui, isSimulating: true, erros: [] } };
 
     // Sucesso: sai do wizard e entrega o usuário na área de resultado —
     // "resultado" não é uma quarta etapa de formulário, é o destino da
     // simulação (ver CLAUDE.md).
-    case "SIMULACAO_CONCLUIDA":
+    //
+    // Recálculo (edição rápida) vs. primeira simulação (wizard): a única
+    // forma de chegar aqui com `state.resultado` já preenchido é ter vindo
+    // do painel de edição rápida sobre um resultado existente — o wizard
+    // sempre zera `resultado` antes de voltar a "resultado" (ver
+    // NOVA_SIMULACAO/FORM_CASO_REAL_CARREGADO, os únicos dois lugares que
+    // levam de volta ao wizard). Por isso `state.resultado !== null` é um
+    // sinal seguro de "isto é um recálculo, não uma simulação do zero" —
+    // sem precisar de uma action nova só para marcar a diferença. Quando é
+    // recálculo, cenário/ano/desconto do usuário sobrevivem ao novo
+    // resultado (Parte 7 desta etapa: "preservar contexto da análise"),
+    // com um fallback seguro se o ano selecionado não existir mais no novo
+    // cenário (não deveria acontecer — o catálogo de parâmetros não muda
+    // entre um recálculo e outro —, mas o motor não garante isso por
+    // contrato).
+    case "SIMULACAO_CONCLUIDA": {
+      const eRecalculo = state.resultado !== null;
+      const cenarioSelecionado = eRecalculo ? state.ui.cenarioSelecionado : "integral";
+      const anosDoNovoCenario = action.resultado.cenarios[cenarioSelecionado].map((r) => r.ano);
+      const anoSelecionado =
+        eRecalculo && anosDoNovoCenario.includes(state.ui.anoSelecionado)
+          ? state.ui.anoSelecionado
+          : ANO_BASE;
       return {
         ...state,
         resultado: action.resultado,
         ui: {
           ...state.ui,
           isSimulating: false,
-          cenarioSelecionado: "integral",
-          anoSelecionado: ANO_BASE,
-          descontoPedidoPct: 0,
+          cenarioSelecionado,
+          anoSelecionado,
+          descontoPedidoPct: eRecalculo ? state.ui.descontoPedidoPct : 0,
           etapaAtual: "resultado",
         },
       };
+    }
 
-    // Mesmo comportamento de antes: uma simulação que falha (entrada
-    // inválida) descarta o resultado anterior, não só mostra o erro por
-    // cima dele.
+    // Uma simulação que falha (entrada inválida, ou o motor lançando) só
+    // mostra o erro — não descarta mais o `resultado` anterior. Antes,
+    // `resultado: null` aqui era inofensivo (o wizard só chega a esta
+    // action com `resultado` já nulo). Agora que o painel de edição rápida
+    // também usa este mesmo caminho para recalcular sobre um resultado
+    // já existente, zerar `resultado` destruiria a última simulação válida
+    // por causa de uma tentativa de recálculo inválida — exatamente a UX
+    // ruim que esta etapa pede para evitar (ver CLAUDE.md, Parte 6).
     case "SIMULACAO_FALHOU":
       return {
         ...state,
-        resultado: null,
         ui: { ...state.ui, isSimulating: false, erros: action.erros },
       };
 
