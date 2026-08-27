@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useSimulation } from "@/state/SimulationProvider";
+import { useToast } from "@/state/ToastProvider";
 import type { SimulationFormState, SimulationResult } from "@/state/simulacaoReducer";
 import { montarDraftDeResultado, validarDraftEdicaoRapida } from "@/state/edicaoRapida";
 import { CampoNumerico } from "./CampoNumerico";
@@ -32,6 +33,7 @@ const LEGENDA_GRUPO = "text-xs font-medium uppercase tracking-wide text-muted";
  */
 export function PainelEdicaoRapida({ resultado, onFechar }: PainelEdicaoRapidaProps) {
   const { state, executarSimulacao } = useSimulation();
+  const { toast } = useToast();
   const { catalogo, ui } = state;
 
   const [draft, setDraft] = useState<SimulationFormState>(() => montarDraftDeResultado(resultado));
@@ -75,6 +77,11 @@ export function PainelEdicaoRapida({ resultado, onFechar }: PainelEdicaoRapidaPr
     const resultadoExecucao = await executarSimulacao(draft);
     if (resultadoExecucao.ok) {
       onFechar();
+      toast({
+        variant: "success",
+        title: "Simulação atualizada",
+        description: "Os resultados foram recalculados com os novos dados.",
+      });
     } else {
       setErros(
         resultadoExecucao.erros.length > 0

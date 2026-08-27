@@ -52,10 +52,9 @@ function ItemHistorico({ item }: { item: SimulacaoResumo }) {
 
         <div className="flex flex-wrap items-center gap-3 sm:shrink-0">
           <div className="sm:text-right">
-            <p className="text-xs text-muted">Preço analisado → recomendado</p>
+            <p className="text-xs text-muted">Preço da estratégia</p>
             <p className="font-figures text-sm font-medium text-text-primary">
               {item.precoAnalisado !== null ? `R$ ${formatarReais(item.precoAnalisado)}` : "—"}
-              {item.precoRecomendado !== null && ` → R$ ${formatarReais(item.precoRecomendado)}`}
             </p>
           </div>
           {status && (

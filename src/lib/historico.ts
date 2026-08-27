@@ -13,7 +13,7 @@
 
 import { cache } from "react";
 import prisma from "./prisma";
-import { calcularPrecoRecomendado, classificarStatusPreco, type StatusPreco } from "./analiseResultado";
+import { classificarStatusPreco, type StatusPreco } from "./analiseResultado";
 import type { CenarioRepasse, FormulaTipo, ImpactoCaixaAno, ResultadoAno } from "./motor";
 
 const CENARIO_PRINCIPAL: CenarioRepasse = "integral";
@@ -55,8 +55,8 @@ export interface SimulacaoResumo {
   custoCompra: number;
   cenarioPrincipal: CenarioRepasse;
   anoPrincipal: number | null;
+  /** Preço que a estratégia (ano-base do cenário "integral") produz — ver `ResultadoAno.preco`, nunca uma correção automática de piso. */
   precoAnalisado: number | null;
-  precoRecomendado: number | null;
   status: StatusPreco | null;
   alertaDisparado: boolean;
 }
@@ -108,7 +108,6 @@ export async function listarSimulacoesDoUsuario(userId: string): Promise<Simulac
       cenarioPrincipal: CENARIO_PRINCIPAL,
       anoPrincipal: resultadoAno?.ano ?? null,
       precoAnalisado: resultadoAno?.preco ?? null,
-      precoRecomendado: resultadoAno ? calcularPrecoRecomendado(resultadoAno) : null,
       status: resultadoAno ? classificarStatusPreco(resultadoAno.preco, resultadoAno.piso, resultadoAno.teto) : null,
       alertaDisparado: resultadoAno?.alertaDisparado ?? false,
     };
@@ -190,6 +189,8 @@ export interface SimulacaoDetalhe {
   id: string;
   createdAt: string;
   nomeProduto: string | null;
+  /** FK real do ramo no momento do submit — usado para reconstruir o formulário em "Nova a partir desta" (ver src/state/novaAPartirDoHistorico.ts). `ramoRotulo`/`ramoAliquotaSugerida` abaixo continuam sendo o snapshot de EXIBIÇÃO (não recalculado se o Ramo mudar depois). */
+  ramoId: string;
   ramoRotulo: string | null;
   ramoAliquotaSugerida: number | null;
   formulaTipo: FormulaTipo;
@@ -253,6 +254,7 @@ export const buscarSimulacaoDoUsuario = cache(async function buscarSimulacaoDoUs
     id: simulacao.id,
     createdAt: simulacao.createdAt.toISOString(),
     nomeProduto: simulacao.nomeProduto,
+    ramoId: simulacao.ramoId,
     ramoRotulo: simulacao.ramoRotulo,
     ramoAliquotaSugerida:
       simulacao.ramoAliquotaSugerida !== null ? Number(simulacao.ramoAliquotaSugerida) : null,

@@ -4,11 +4,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 import { useAuth } from "@/state/AuthProvider";
+import { useToast } from "@/state/ToastProvider";
 import { CampoTexto } from "@/components/auth/CampoTexto";
 
 export default function CadastroPage() {
   const router = useRouter();
   const { status, autenticar } = useAuth();
+  const { toast } = useToast();
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -40,6 +42,11 @@ export default function CadastroPage() {
       }
 
       autenticar(corpo.usuario);
+      toast({
+        variant: "success",
+        title: "Conta criada",
+        description: "Você já pode salvar suas simulações.",
+      });
       router.push("/");
     } catch {
       setErros(["Não foi possível conectar ao servidor. Verifique sua conexão e tente novamente."]);

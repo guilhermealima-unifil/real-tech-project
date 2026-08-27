@@ -5,6 +5,8 @@
  * do caminho crítico.
  */
 
+import type { StatusPreco } from "./analiseResultado";
+
 export interface DadosParaRecomendacao {
   ano: number;
   preco: number;
@@ -60,6 +62,78 @@ export function recomendacaoParaAno(dados: DadosParaRecomendacao): string {
     `Em ${dados.ano}, seu preço de R$ ${formatarReais(dados.preco)} já está no seu piso de margem ` +
     `— qualquer desconto fura o mínimo de ${formatarPct(dados.margemMinimaPct)}% que você definiu.`
   );
+}
+
+export interface DadosLeituraFaixa {
+  status: StatusPreco;
+  preco: number;
+  piso: number;
+  teto: number | null;
+  descontoMaximoPct: number | null;
+}
+
+export interface LeituraFaixaTexto {
+  titulo: string;
+  /** `null` quando o título já é auto-suficiente (estados "dentro da faixa"). */
+  complemento: string | null;
+}
+
+/**
+ * Leitura NEUTRA da faixa viável (aba "Faixa viável", perto do seletor de
+ * estratégia — ver LeituraFaixa.tsx) — não é recomendação nem decisão:
+ * interpreta só os fatos que `ResultadoAno` já sustenta (status, piso, teto,
+ * preço, desconto disponível), sem conhecer prioridade do empresário,
+ * elasticidade ou reação de mercado. Reaproveita `status`
+ * (`classificarStatusPreco`, src/lib/analiseResultado.ts) como autoridade de
+ * precedência — não reimplementa a comparação piso/teto/preço aqui.
+ *
+ * Substitui a antiga "Ação recomendada" do header (`resumoRecomendacao`,
+ * removida): aquela colapsava "acima do teto" dentro da mesma frase de
+ * "mantenha o preço atual" — esta função trata os quatro status como
+ * branches distintas, então um preço acima do teto nunca é lido como "tudo
+ * bem, mantenha".
+ *
+ * O número de desconto disponível (`descontoMaximoPct`) só decide QUAL
+ * mensagem mostrar (com folga vs. no piso) — o valor em si não é repetido
+ * aqui: já aparece em `ResumoResultado` ("Limite seguro"), logo abaixo
+ * desta leitura na mesma tela.
+ */
+export function leituraFaixa(dados: DadosLeituraFaixa): LeituraFaixaTexto {
+  if (dados.status === "faixa_inviavel") {
+    return {
+      titulo: "Não há faixa viável neste ano.",
+      complemento:
+        "O piso necessário para proteger sua margem está acima do teto informado pela praça.",
+    };
+  }
+
+  if (dados.status === "abaixo_piso") {
+    return {
+      titulo: "O preço está abaixo do piso necessário para preservar a margem mínima.",
+      complemento: `Faltam R$ ${formatarReais(dados.piso - dados.preco)} para alcançar o piso.`,
+    };
+  }
+
+  if (dados.status === "acima_teto") {
+    return {
+      titulo: "O preço está acima do teto informado pela praça.",
+      complemento:
+        "A estratégia protege a margem, mas excede a referência máxima de preço informada.",
+    };
+  }
+
+  // dentro_da_faixa: com folga (desconto disponível > 0) ou exatamente no piso.
+  if (dados.descontoMaximoPct !== null && dados.descontoMaximoPct > 0) {
+    return {
+      titulo: "O preço está acima do piso, com folga até a margem mínima.",
+      complemento: null,
+    };
+  }
+
+  return {
+    titulo: "O preço está no piso da margem mínima.",
+    complemento: null,
+  };
 }
 
 export interface DadosParaRecomendacaoCaixa {
@@ -162,36 +236,61 @@ export function mensagemAnaliseDesconto(dados: DadosAnaliseDesconto): string {
   return `Esse desconto usa exatamente o limite seguro, no piso da sua margem mínima.`;
 }
 
-export interface DadosPrecoRecomendado {
-  precoAtual: number;
-  /** `null` quando não existe preço recomendado (faixa inviável — ver src/lib/analiseResultado.ts). */
-  precoRecomendado: number | null;
-  /** `precoRecomendado - precoAtual`, de src/lib/analiseResultado.ts. */
-  diferencaValor: number | null;
+export interface DadosPrecoEstrategia {
+  /** `resultado.preco` — o preço que a fórmula/estratégia produz, sem nenhuma correção de piso. */
+  precoEstrategia: number;
+  /** Já classificado por src/lib/analiseResultado.ts — decide qual das quatro frases mostrar. */
+  status: StatusPreco;
+}
+
+/**
+ * Frase factual que acompanha o preço da estratégia no card principal —
+ * NUNCA usa "recomendado"/"reajuste recomendado" (auditoria: `preco` que a
+ * estratégia produz não é uma recomendação comercial independente, ver
+ * `calcularPrecoRecomendado` em src/lib/analiseResultado.ts). Descreve só o
+ * que o status já garante, sem prescrever o que o empresário "deve" cobrar:
+ *
+ * - `abaixo_piso`: não é tratado aqui — o card mostra o bloco "Para
+ *   preservar sua margem mínima" à parte (ver `mensagemReajusteNecessario`
+ *   abaixo), então esta função não precisa de uma frase própria para esse
+ *   status.
+ * - `acima_teto`: reconhece o teto explicitamente — o preço já preserva a
+ *   margem, mas ultrapassa a referência de mercado (Caso C, Integral, 2027).
+ * - `faixa_inviavel`: nenhum preço comercial fictício — descreve a
+ *   inviabilidade estrutural (piso > teto).
+ * - `dentro_da_faixa`: frase neutra, sem repetir o número (já é o valor em
+ *   destaque do card).
+ */
+export function mensagemPrecoEstrategia(dados: DadosPrecoEstrategia): string {
+  if (dados.status === "faixa_inviavel") {
+    return "Não existe preço que atenda sua margem mínima e o teto da praça ao mesmo tempo.";
+  }
+
+  if (dados.status === "acima_teto") {
+    return "Este preço preserva sua margem, mas está acima do teto informado pela praça.";
+  }
+
+  if (dados.status === "abaixo_piso") {
+    return `Este preço, de R$ ${formatarReais(dados.precoEstrategia)}, fica abaixo do piso da sua margem mínima.`;
+  }
+
+  return "Este preço preserva sua margem mínima.";
+}
+
+export interface DadosReajusteNecessario {
+  /** `piso - preco`, de `calcularDiferencaPreco(piso, preco)` (src/lib/analiseResultado.ts) — nenhum cálculo novo aqui. */
+  diferencaValor: number;
   diferencaPercentual: number | null;
 }
 
 /**
- * A frase que acompanha o preço recomendado — decide entre três formas,
- * pra nunca repetir o mesmo número duas vezes sem dizer nada novo:
- * sem recomendação, preço já no valor certo, ou reajuste necessário.
+ * Frase factual para o bloco "Para preservar sua margem mínima" (só
+ * renderizado quando `status === "abaixo_piso"`, ver ResumoResultado.tsx) —
+ * descreve o valor necessário, não prescreve uma decisão comercial: nunca
+ * diz que o empresário "deve" cobrar esse preço.
  */
-export function mensagemPrecoRecomendado(dados: DadosPrecoRecomendado): string {
-  if (dados.precoRecomendado === null) {
-    return "Não existe preço que atenda sua margem mínima e o teto da praça ao mesmo tempo.";
-  }
-
-  if (dados.diferencaValor === 0) {
-    return `Seu preço atual (R$ ${formatarReais(dados.precoAtual)}) já está no valor recomendado.`;
-  }
-
-  const sinal = dados.diferencaValor !== null && dados.diferencaValor > 0 ? "+" : "";
+export function mensagemReajusteNecessario(dados: DadosReajusteNecessario): string {
   const percentual =
-    dados.diferencaPercentual !== null
-      ? ` (${sinal}${formatarPct(dados.diferencaPercentual)}%)`
-      : "";
-
-  return (
-    `Reajuste recomendado: ${sinal}R$ ${formatarReais(dados.diferencaValor as number)}${percentual}.`
-  );
+    dados.diferencaPercentual !== null ? ` (${formatarPct(dados.diferencaPercentual)}%)` : "";
+  return `É necessário elevar o preço em R$ ${formatarReais(dados.diferencaValor)}${percentual} para atingir o piso.`;
 }

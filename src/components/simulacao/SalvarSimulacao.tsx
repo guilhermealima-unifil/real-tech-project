@@ -4,9 +4,13 @@ import Link from "next/link";
 import { useState } from "react";
 import { useAuth } from "@/state/AuthProvider";
 import { useSimulation } from "@/state/SimulationProvider";
+import { useToast } from "@/state/ToastProvider";
 import type { SimulationResult } from "@/state/simulacaoReducer";
 import { montarPayloadSimulacaoSalva } from "@/lib/simulacoesCliente";
+import { Button } from "@/components/ui/Button";
 import { DialogSalvarSimulacao } from "./DialogSalvarSimulacao";
+import { ConteudoAcaoResponsivo } from "./HeaderAnalise";
+import { IconeSalvar } from "./icones";
 
 interface SalvarSimulacaoProps {
   resultado: SimulationResult;
@@ -42,6 +46,7 @@ type EstadoSalvamento = "idle" | "salvando" | "salvo" | "erro";
 export function SalvarSimulacao({ resultado }: SalvarSimulacaoProps) {
   const { status } = useAuth();
   const { state } = useSimulation();
+  const { toast } = useToast();
   const [dialogAberto, setDialogAberto] = useState(false);
   const [estado, setEstado] = useState<EstadoSalvamento>("idle");
   const [simulacaoId, setSimulacaoId] = useState<string | null>(null);
@@ -97,6 +102,11 @@ export function SalvarSimulacao({ resultado }: SalvarSimulacaoProps) {
       setSimulacaoId(corpo.id);
       setEstado("salvo");
       setDialogAberto(false);
+      toast({
+        variant: "success",
+        title: "Simulação salva",
+        description: "Ela já está disponível no seu histórico.",
+      });
     } catch {
       setEstado("erro");
       setErro("Não foi possível conectar ao servidor. Verifique sua conexão e tente novamente.");
@@ -109,7 +119,7 @@ export function SalvarSimulacao({ resultado }: SalvarSimulacaoProps) {
 
   if (estado === "salvo") {
     return (
-      <span aria-live="polite" className="flex items-center gap-2 text-xs font-medium text-success">
+      <span className="flex items-center gap-2 text-xs font-medium text-success">
         Simulação salva
         {simulacaoId && (
           <Link href={`/historico/${simulacaoId}`} className="underline-offset-2 hover:underline">
@@ -121,14 +131,17 @@ export function SalvarSimulacao({ resultado }: SalvarSimulacaoProps) {
   }
 
   return (
-    <span aria-live="polite" className="flex items-center gap-2">
-      <button
-        type="button"
+    <span aria-live="polite" className="inline-flex items-center">
+      <Button
+        variant="primary"
+        size="sm"
+        aria-label="Salvar simulação"
+        title="Salvar simulação"
+        className="min-h-9 sm:min-h-0"
         onClick={() => setDialogAberto(true)}
-        className="text-xs font-medium text-text-secondary underline-offset-2 hover:text-text-primary hover:underline"
       >
-        Salvar simulação
-      </button>
+        <ConteudoAcaoResponsivo rotulo="Salvar" icone={<IconeSalvar className="h-4 w-4" />} />
+      </Button>
 
       {dialogAberto && (
         <DialogSalvarSimulacao

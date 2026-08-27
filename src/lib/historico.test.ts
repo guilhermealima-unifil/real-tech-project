@@ -45,7 +45,6 @@ function itemResumo(overrides: Partial<SimulacaoResumo> = {}): SimulacaoResumo {
     cenarioPrincipal: "integral",
     anoPrincipal: 2026,
     precoAnalisado: 155,
-    precoRecomendado: 155,
     status: "dentro_da_faixa",
     alertaDisparado: false,
     ...overrides,

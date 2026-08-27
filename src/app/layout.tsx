@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { AuthProvider } from "@/state/AuthProvider";
 import { SimulationProvider } from "@/state/SimulationProvider";
+import { ToastProvider } from "@/state/ToastProvider";
 import { AppShell } from "@/components/shell/AppShell";
 import "./globals.css";
 
@@ -31,9 +32,10 @@ export const metadata: Metadata = {
  * simulador em si; mantê-lo no layout evita reintroduzir o provider mais
  * abaixo sem necessidade.
  *
- * AuthProvider é irmão de SimulationProvider, por fora — autenticação e
- * simulação são estados independentes (o simulador continua público e
- * funcional sem login); nenhum dos dois lê o estado do outro.
+ * ToastProvider envolve ambos porque feedback operacional pode nascer em
+ * auth ou simulação e precisa sobreviver às navegações client-side sem se
+ * acoplar a nenhum desses domínios. AuthProvider e SimulationProvider
+ * continuam independentes entre si.
  */
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
@@ -42,11 +44,13 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full">
-        <AuthProvider>
-          <SimulationProvider>
-            <AppShell>{children}</AppShell>
-          </SimulationProvider>
-        </AuthProvider>
+        <ToastProvider>
+          <AuthProvider>
+            <SimulationProvider>
+              <AppShell>{children}</AppShell>
+            </SimulationProvider>
+          </AuthProvider>
+        </ToastProvider>
       </body>
     </html>
   );

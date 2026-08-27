@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useSimulation } from "@/state/SimulationProvider";
+import { useToast } from "@/state/ToastProvider";
 import { errosDaEtapa, numOrUndefined } from "@/state/validacaoEtapas";
 import type { EtapaWizard, SimulationFormState } from "@/state/simulacaoReducer";
 import { decidirAcaoEnter } from "./decisaoEnter";
@@ -57,6 +58,7 @@ const CASOS_REAIS: Record<
  * estado, validação e ações continuam exatamente os mesmos de antes.
  */
 export function SimulacaoWizard() {
+  const { toast } = useToast();
   const {
     state,
     carregarCasoReal,
@@ -140,7 +142,14 @@ export function SimulacaoWizard() {
     // usuário decidiu simular" — só chama `executarSimulacao()` quando
     // isso for realmente verdade.
     if (!eUltimaEtapa || !prontoParaSubmeter) return;
-    await executarSimulacao();
+    const resultadoExecucao = await executarSimulacao();
+    if (resultadoExecucao.ok) {
+      toast({
+        variant: "success",
+        title: "Simulação concluída",
+        description: "Compare os cenários e veja como preço e margem evoluem ao longo dos anos.",
+      });
+    }
   }
 
   // Causa raiz do bug de pular a Etapa Mercado: o wizard inteiro é um único

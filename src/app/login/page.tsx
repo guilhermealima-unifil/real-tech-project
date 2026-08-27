@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 import { useAuth } from "@/state/AuthProvider";
+import { useToast } from "@/state/ToastProvider";
 import { CampoTexto } from "@/components/auth/CampoTexto";
 
 /**
@@ -25,6 +26,7 @@ import { CampoTexto } from "@/components/auth/CampoTexto";
 export default function LoginPage() {
   const router = useRouter();
   const { status, autenticar } = useAuth();
+  const { toast } = useToast();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [enviando, setEnviando] = useState(false);
@@ -55,6 +57,7 @@ export default function LoginPage() {
       }
 
       autenticar(corpo.usuario);
+      toast({ variant: "success", title: "Login realizado" });
       router.push("/");
     } catch {
       setErros(["Não foi possível conectar ao servidor. Verifique sua conexão e tente novamente."]);

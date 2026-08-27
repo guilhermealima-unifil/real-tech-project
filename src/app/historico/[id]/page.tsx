@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { getUsuarioAutenticado } from "@/lib/auth/dal";
 import { buscarSimulacaoDoUsuario, nomeExibicaoSimulacao } from "@/lib/historico";
 import { DetalheSimulacaoSalva } from "@/components/historico/DetalheSimulacaoSalva";
+import { NovaAPartirDesta } from "@/components/historico/NovaAPartirDesta";
 
 const FORMATADOR_DATA = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" });
 
@@ -49,23 +50,27 @@ export default async function HistoricoDetalhePage({
 
   return (
     <>
-      <header>
-        <Link
-          href="/historico"
-          className="text-xs font-medium text-text-secondary underline-offset-2 hover:text-text-primary hover:underline"
-        >
-          ← Voltar ao histórico
-        </Link>
-        <h1 className="mt-2 text-2xl font-semibold tracking-tight text-text-primary">
-          {nomeExibicaoSimulacao(simulacao.nomeProduto, simulacao.ramoRotulo)}
-        </h1>
-        <p className="mt-1 text-sm text-text-secondary">
-          {simulacao.ramoRotulo ?? "Ramo não informado"}
-        </p>
-        <p className="mt-1 text-sm text-text-secondary">
-          Simulação salva em {FORMATADOR_DATA.format(new Date(simulacao.createdAt))}. Os valores abaixo
-          são os que você viu naquele momento.
-        </p>
+      <header className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <Link
+            href="/historico"
+            className="text-xs font-medium text-text-secondary underline-offset-2 hover:text-text-primary hover:underline"
+          >
+            ← Voltar ao histórico
+          </Link>
+          <h1 className="mt-2 text-2xl font-semibold tracking-tight text-text-primary">
+            {nomeExibicaoSimulacao(simulacao.nomeProduto, simulacao.ramoRotulo)}
+          </h1>
+          <p className="mt-1 text-sm text-text-secondary">
+            {simulacao.ramoRotulo ?? "Ramo não informado"}
+          </p>
+          <p className="mt-1 text-sm text-text-secondary">
+            Simulação salva em {FORMATADOR_DATA.format(new Date(simulacao.createdAt))}. Os valores abaixo
+            são os que você viu naquele momento.
+          </p>
+        </div>
+
+        <NovaAPartirDesta simulacao={simulacao} />
       </header>
 
       <DetalheSimulacaoSalva simulacao={simulacao} />

@@ -10,12 +10,13 @@ Desafio 2). Pitch em 27/08/2026.
 
 ## Documentação
 
+- [AGENTS.md](AGENTS.md) — regras operacionais atuais, invariantes, precedência e mapa de contexto para agentes.
+- [CLAUDE.md](CLAUDE.md) — entrypoint de compatibilidade do Claude Code; importa as regras compartilhadas de `AGENTS.md`.
 - [docs/00-plano-implementacao.md](docs/00-plano-implementacao.md) — cronograma, decisões técnicas, testes de aceitação, riscos.
 - [docs/01-passo-a-passo-vercel-prisma.md](docs/01-passo-a-passo-vercel-prisma.md) — como configurar Vercel, Prisma e PostgreSQL.
 - [docs/02-especificacao-completa.md](docs/02-especificacao-completa.md) — dados, telas, endpoints, banco, testes, roteiro de apresentação.
 - [docs/03-checkpoint2-apresentacao.md](docs/03-checkpoint2-apresentacao.md) — narrativa do pitch do 2º Checkpoint.
 - [docs/04-dossie-consolidado.md](docs/04-dossie-consolidado.md) — dossiê completo da jornada (entrevistas, pesquisa de concorrência, Canvas, BMG).
-- [CLAUDE.md](CLAUDE.md) — guia de contexto para trabalhar neste repositório com Claude Code.
 
 ## Stack
 
